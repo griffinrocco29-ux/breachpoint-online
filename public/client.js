@@ -127,12 +127,12 @@ function makeWeaponHands(holder){
 function showWeaponModel(name){
  const old=weapon.getObjectByName("loaded-weapon");if(old)weapon.remove(old);
  const model=weaponModels[name];if(model){
-  const holder=new THREE.Group();holder.name="loaded-weapon";holder.position.set(.08,-.25,-.78);holder.userData.hipPosition=new THREE.Vector3(.08,-.25,-.78);holder.userData.adsPosition=new THREE.Vector3(-.035,-.19,-.63);
+  const holder=new THREE.Group();holder.name="loaded-weapon";holder.position.set(.30,-.27,-.88);holder.userData.hipPosition=new THREE.Vector3(.30,-.27,-.88);holder.userData.adsPosition=new THREE.Vector3(-.035,-.19,-.63);
   model.traverse(o=>{if(o.isMesh&&o.material){
    const darken=m=>{const mat=m.clone();if(mat.color)mat.color.set(0x303538);if(mat.emissive)mat.emissive.set(0x101315);mat.roughness=.76;mat.metalness=Math.min(mat.metalness??0,.28);return mat};
    o.material=Array.isArray(o.material)?o.material.map(darken):darken(o.material);o.frustumCulled=false;o.castShadow=true;
   }});
-  holder.add(model);makeWeaponHands(holder);weapon.add(holder);
+  holder.add(model);weapon.add(holder);
  }
  const fallback=weapon.getObjectByName("procedural-fallback");if(fallback)fallback.visible=!model;
  if($("weapon-name"))$("weapon-name").textContent=name==="M4"?"M4 CARBINE":"MP5";
