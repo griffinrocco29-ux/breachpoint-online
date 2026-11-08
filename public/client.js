@@ -171,7 +171,7 @@ function makeVXR9(){
 function showWeaponModel(name){
  const old=weapon.getObjectByName("loaded-weapon");if(old)weapon.remove(old);
  const model=makeVXR9();if(model){
-  const holder=new THREE.Group();holder.name="loaded-weapon";holder.position.set(.30,-.27,-.88);holder.userData.hipPosition=new THREE.Vector3(.30,-.27,-.88);holder.userData.adsPosition=new THREE.Vector3(0,-.30,-.63);holder.userData.inspectPosition=new THREE.Vector3(.05,-.33,-1.48);holder.userData.inspectRotation=new THREE.Euler(-.08,.72,.48);
+  const holder=new THREE.Group();holder.name="loaded-weapon";holder.position.set(.30,-.27,-.88);holder.userData.hipPosition=new THREE.Vector3(.30,-.27,-.88);holder.userData.adsPosition=new THREE.Vector3(0,-.235,-.63);holder.userData.inspectPosition=new THREE.Vector3(.08,-.42,-1.72);holder.userData.inspectRotation=new THREE.Euler(-.12,.62,.42);
   model.traverse(o=>{if(o.isMesh){o.frustumCulled=false;o.castShadow=true;o.receiveShadow=true}});
   holder.userData.mag=model.userData.mag;holder.userData.bolt=model.userData.bolt;holder.userData.charging=model.userData.charging;holder.userData.leftArm=model.userData.leftArm;holder.userData.rightArm=model.userData.rightArm;
   holder.add(model);const spare=model.userData.mag.clone();spare.name="vxr-spare-magazine";spare.visible=false;holder.add(spare);holder.userData.spareMag=spare;weapon.add(holder);
@@ -265,9 +265,9 @@ function move(dt){if(!inGame)return;const locked=document.pointerLockElement===r
  if(actionAnim&&progress>=1){if(actionAnim==="plant"&&!bombPlanted)planting=false;if(actionAnim!=="reload")actionAnim=""}
  if(knifeGroup&&knifeActive){const p=THREE.MathUtils.clamp(elapsed/560,0,1),stab=Math.sin(Math.min(1,p*1.7)*Math.PI/2);knifeGroup.position.set(.48-stab*.48,-.38+stab*.17,-.72-stab*.7);knifeGroup.rotation.set(-.25-stab*.95,-.18+stab*.18,-.2-stab*.42)}
  if(knifeGroup&&!knifeActive){knifeGroup.position.lerp(knifeGroup.userData.rest.position,1-Math.exp(-18*dt));knifeGroup.rotation.x=THREE.MathUtils.damp(knifeGroup.rotation.x,knifeGroup.userData.rest.rotation.x,16,dt);knifeGroup.rotation.y=THREE.MathUtils.damp(knifeGroup.rotation.y,knifeGroup.userData.rest.rotation.y,16,dt);knifeGroup.rotation.z=THREE.MathUtils.damp(knifeGroup.rotation.z,knifeGroup.userData.rest.rotation.z,16,dt)}
- recoilOffset=THREE.MathUtils.damp(recoilOffset,0,5.2,dt);const reloadDip=actionAnim==="reload"?Math.sin(Math.PI*progress)*.34:0,plantDip=actionAnim==="plant"?Math.sin(Math.PI*progress)*.55:0,inspectDip=actionAnim==="inspect"?Math.sin(Math.PI*progress)*.14:0;
- weapon.position.set(Math.sin(walkTime)*.008,-weaponKick*.08+Math.abs(Math.cos(walkTime*2))*.009-reloadDip-plantDip-inspectDip,-weaponKick*.13+(actionAnim==="reload"?Math.sin(progress*Math.PI*2)*.12:0)+(actionAnim==="inspect"?Math.sin(progress*Math.PI*2)*.16:0));
- weapon.rotation.set(-weaponKick*.12+(actionAnim==="reload"?Math.sin(progress*Math.PI*2)*.35:0)+(actionAnim==="plant"?progress*.65:0)+(actionAnim==="inspect"?Math.sin(progress*Math.PI*2)*.3:0),Math.sin(walkTime)*.012+(actionAnim==="inspect"?Math.sin(progress*Math.PI*2)*.65:0),Math.sin(walkTime*.5)*.012+(actionAnim==="reload"?Math.sin(progress*Math.PI)*.28:0)+(actionAnim==="inspect"?Math.sin(progress*Math.PI)*.48:0));const viewWeapon=weapon.getObjectByName("loaded-weapon");if(viewWeapon){
+ recoilOffset=THREE.MathUtils.damp(recoilOffset,0,5.2,dt);const reloadDip=(actionAnim==="reload"||actionAnim==="empty-reload")?Math.sin(Math.PI*progress)*.34:0,plantDip=actionAnim==="plant"?Math.sin(Math.PI*progress)*.55:0,inspectDip=0;
+ weapon.position.set(Math.sin(walkTime)*.008,-weaponKick*.08+Math.abs(Math.cos(walkTime*2))*.009-reloadDip-plantDip,-weaponKick*.13+((actionAnim==="reload"||actionAnim==="empty-reload")?Math.sin(progress*Math.PI*2)*.12:0));
+ weapon.rotation.set(-weaponKick*.12+((actionAnim==="reload"||actionAnim==="empty-reload")?Math.sin(progress*Math.PI*2)*.35:0)+(actionAnim==="plant"?progress*.65:0)+(actionAnim==="empty-reload"?Math.sin(progress*Math.PI)*.16:0),Math.sin(walkTime)*.012+(actionAnim==="empty-reload"?Math.sin(progress*Math.PI)*.32:0),Math.sin(walkTime*.5)*.012+((actionAnim==="reload"||actionAnim==="empty-reload")?Math.sin(progress*Math.PI)*.28:0)+(actionAnim==="empty-reload"?Math.sin(progress*Math.PI)*.62:0));const viewWeapon=weapon.getObjectByName("loaded-weapon");if(viewWeapon){
   const inspecting=actionAnim==="inspect",reloadAction=actionAnim==="reload"||actionAnim==="empty-reload",emptyAction=actionAnim==="empty-reload";
   const target=inspecting?viewWeapon.userData.inspectPosition:(aiming?viewWeapon.userData.adsPosition:viewWeapon.userData.hipPosition);
   if(target)viewWeapon.position.lerp(target,1-Math.exp((inspecting?7:12)*-dt));
@@ -275,7 +275,7 @@ function move(dt){if(!inGame)return;const locked=document.pointerLockElement===r
   viewWeapon.rotation.x=THREE.MathUtils.damp(viewWeapon.rotation.x,inspectRot.x+(inspecting?Math.sin(progress*Math.PI*2)*.12:0),8,dt);
   viewWeapon.rotation.y=THREE.MathUtils.damp(viewWeapon.rotation.y,inspectRot.y+(inspecting?Math.sin(progress*Math.PI)*.28:0),8,dt);
   viewWeapon.rotation.z=THREE.MathUtils.damp(viewWeapon.rotation.z,inspectRot.z+(inspecting?Math.sin(progress*Math.PI*2)*.12:0),8,dt);
-  viewWeapon.scale.setScalar(THREE.MathUtils.damp(viewWeapon.scale.x,aiming?.94:1,12,dt));
+  viewWeapon.scale.setScalar(THREE.MathUtils.damp(viewWeapon.scale.x,inspecting?.78:aiming?.94:1,12,dt));
   const mag=viewWeapon.userData.mag,spare=viewWeapon.userData.spareMag,left=viewWeapon.userData.leftArm,rightArm=viewWeapon.userData.rightArm,bolt=viewWeapon.userData.bolt,charging=viewWeapon.userData.charging;
   if(reloadAction&&mag&&spare){
    const p=progress,drop=THREE.MathUtils.clamp((p-.04)/.28,0,1),insert=THREE.MathUtils.clamp((p-.34)/.48,0,1);
