@@ -36,39 +36,98 @@ function buildMap(){
  for(let x of [-23,23])for(let z of [-12,-6,6,12]){box(x,1.2,z,.6,2.4,2.4,mats.black);for(let y of [.45,1.25,2.05])box(x+(x<0?.38:-.38),y,z,1.1,.08,2.2,mats.steel,false)}
  for(let x=-20;x<=20;x+=10)for(let z of [-12,0,12]){box(x,5.02,z,2.1,.1,.7,mats.black,false);const l=new THREE.PointLight(0xffdfb0,48,11,2);l.position.set(x,4.7,z);scene.add(l);const glow=new THREE.Mesh(new THREE.BoxGeometry(1.6,.03,.4),new THREE.MeshBasicMaterial({color:0xffe7c4}));glow.position.set(x,4.95,z);scene.add(glow)}
  for(let x=-24;x<=24;x+=4){const l=new THREE.Mesh(new THREE.BoxGeometry(.025,.008,40),new THREE.MeshBasicMaterial({color:0x95896c}));l.position.set(x,.012,0);scene.add(l)}
+ // Extra interior cover creates staggered lanes instead of one long open shooting gallery.
+ for(const z of [-14,14]){
+  box(-10,1.15,z,5.2,2.3,.55,mats.dark);box(10,1.15,-z,5.2,2.3,.55,mats.dark);
+  for(const x of [-12,-8,8,12])box(x,2.35,z,.12,.12,1.2,mats.steel,false);
+ }
+ // Offset chest-high barriers leave deliberate doorways between each lane.
+ for(const x of [-15,-5,5,15]){
+  const z=x<0?5:-5;
+  box(x,0.72,z,3.8,1.44,.48,mats.steel);
+  box(x+(x<0?2.4:-2.4),0.72,-z,2.4,1.44,.48,mats.dark);
+ }
+ // Cargo stacks, pallet piles and waist-high concrete blocks provide close-range cover.
+ crate(-11,0,2.1,1.35,1.35);crate(11,0,2.1,1.35,1.35);
+ crate(-3,-13,1.8,1.2,1.2);crate(3,13,1.8,1.2,1.2);
+ for(const x of [-19,-7,7,19])for(const z of [-8,8]){
+  box(x,.48,z,1.5,.96,1.1,mats.concrete);
+  box(x,.99,z,1.35,.06,.96,mats.steel,false);
+ }
+ // Short divider walls create several connected rooms with offset entries.
+ box(-3,1.35,-4,.35,2.7,7,concrete);box(3,1.35,4,.35,2.7,7,concrete);
+ box(-12,1.35,3,5,.35,2.7,concrete);box(12,1.35,-3,5,.35,2.7,concrete);
+
 }
 function add(parent,geo,mat,pos,rot){const o=new THREE.Mesh(geo,mat);o.position.set(...pos);if(rot)o.rotation.set(...rot);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o}
+let weaponModels={},activeWeapon="M4";
+function loadWeaponModel(url,name){
+ const loader=new GLTFLoader();
+ loader.load(url,gltf=>{
+  const root=gltf.scene;root.updateMatrixWorld(true);
+  const bounds=new THREE.Box3().setFromObject(root),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());
+  const dims=[size.x,size.y,size.z],axis=dims.indexOf(Math.max(...dims));
+  const length=dims[axis];if(!Number.isFinite(length)||length<.001)return;
+  const normalized=new THREE.Group();normalized.add(root);root.position.sub(center);root.scale.setScalar(1.18/length);
+  if(axis===0)normalized.rotation.y=Math.PI/2;
+  else if(axis===1)normalized.rotation.x=Math.PI/2;
+  root.traverse(o=>{if(o.isMesh){o.frustumCulled=false;o.castShadow=true;o.receiveShadow=true}});
+  weaponModels[name]=normalized;
+  if(activeWeapon===name)showWeaponModel(name);
+  console.info("Loaded weapon asset:",name);
+ },undefined,e=>console.warn("Could not load "+name+" model; fallback remains active.",e));
+}
+function showWeaponModel(name){
+ const old=weapon.getObjectByName("loaded-weapon");if(old)weapon.remove(old);
+ const model=weaponModels[name];if(model){const holder=new THREE.Group();holder.name="loaded-weapon";holder.position.set(.34,-.34,-.94);holder.add(model);weapon.add(holder)}
+ const fallback=weapon.getObjectByName("procedural-fallback");if(fallback)fallback.visible=!model;
+ if($( "weapon-name"))$("weapon-name").textContent=name==="M4"?"M4 CARBINE":"MP5";
+}
 function makeWeapon(){
  weapon=new THREE.Group();weapon.frustumCulled=false;weapon.renderOrder=10;camera.add(weapon);
- // Procedural fallback stays visible if the model cannot load.
+ const fallback=new THREE.Group();fallback.name="procedural-fallback";weapon.add(fallback);
  const metal=M(0x171d1b,.35,.75),poly=M(0x343b35,.75,.1),steel=M(0x69716d,.3,.8),rubber=M(0x151918);
- add(weapon,new THREE.BoxGeometry(.17,.19,.72),metal,[.34,-.29,-.57]);add(weapon,new THREE.BoxGeometry(.18,.23,.24),poly,[.34,-.31,-.25]);add(weapon,new THREE.BoxGeometry(.14,.32,.22),rubber,[.34,-.48,-.36],[.18,0,0]);add(weapon,new THREE.BoxGeometry(.14,.15,.36),poly,[.34,-.29,-1.02]);add(weapon,new THREE.CylinderGeometry(.035,.035,.55,12),steel,[.34,-.27,-1.42],[Math.PI/2,0,0]);add(weapon,new THREE.CylinderGeometry(.055,.055,.08,12),metal,[.34,-.27,-1.7],[Math.PI/2,0,0]);add(weapon,new THREE.BoxGeometry(.14,.23,.28),metal,[.34,-.48,-.62]);add(weapon,new THREE.BoxGeometry(.07,.08,.2),steel,[.34,-.17,-.83]);
- for(let i=0;i<8;i++)add(weapon,new THREE.BoxGeometry(.19,.018,.035),steel,[.34,-.16,-.91-i*.055]);add(weapon,new THREE.BoxGeometry(.12,.16,.16),metal,[.34,-.075,-.83]);add(weapon,new THREE.CylinderGeometry(.055,.055,.035,16),steel,[.34,-.075,-.91],[Math.PI/2,0,0]);
- const lens=new THREE.Mesh(new THREE.CircleGeometry(.045,16),new THREE.MeshBasicMaterial({color:0x577d77}));lens.position.set(.34,-.075,-.933);weapon.add(lens);
- const sleeve=M(0x424b3f),glove=M(0x252a27);for(let s of [-1,1]){add(weapon,new THREE.CylinderGeometry(.095,.12,.55,10),sleeve,[.34+s*.18,-.48,-.25],[.3,0,s*.45]);add(weapon,new THREE.SphereGeometry(.105,12,10),glove,[.34+s*.18,-.32,-.48])}
- const fallback=weapon.children.slice();
- new GLTFLoader().load("/assets/M4+carbine.glb",gltf=>{
-  const model=gltf.scene;model.updateMatrixWorld(true);
-  const bounds=new THREE.Box3().setFromObject(model),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());
-  const longest=Math.max(size.x,size.y,size.z);if(!Number.isFinite(longest)||longest<=0)throw new Error("Invalid weapon model dimensions");
-  const scale=1.25/longest;
-  model.position.set(-center.x,-center.y,-center.z);model.scale.setScalar(scale);
-  model.traverse(o=>{if(o.isMesh){o.frustumCulled=false;o.castShadow=true;o.receiveShadow=true}});
-  const pivot=new THREE.Group();pivot.rotation.y=Math.PI/2;pivot.position.set(.34,-.34,-.96);pivot.add(model);
-  for(const child of fallback)weapon.remove(child);
-  weapon.add(pivot);
-  console.info("BREACHPOINT: M4 model loaded",size);
- },undefined,error=>console.warn("M4 model did not load; using fallback weapon.",error));
+ const put=(geo,mat,pos,rot)=>{const o=new THREE.Mesh(geo,mat);o.position.set(...pos);if(rot)o.rotation.set(...rot);o.frustumCulled=false;fallback.add(o);return o};
+ put(new THREE.BoxGeometry(.17,.19,.72),metal,[.34,-.29,-.57]);put(new THREE.BoxGeometry(.18,.23,.24),poly,[.34,-.31,-.25]);put(new THREE.BoxGeometry(.14,.32,.22),rubber,[.34,-.48,-.36],[.18,0,0]);put(new THREE.BoxGeometry(.14,.15,.36),poly,[.34,-.29,-1.02]);put(new THREE.CylinderGeometry(.035,.035,.55,12),steel,[.34,-.27,-1.42],[Math.PI/2,0,0]);put(new THREE.CylinderGeometry(.055,.055,.08,12),metal,[.34,-.27,-1.7],[Math.PI/2,0,0]);put(new THREE.BoxGeometry(.14,.23,.28),metal,[.34,-.48,-.62]);put(new THREE.BoxGeometry(.07,.08,.2),steel,[.34,-.17,-.83]);
+ for(let i=0;i<8;i++)put(new THREE.BoxGeometry(.19,.018,.035),steel,[.34,-.16,-.91-i*.055]);put(new THREE.BoxGeometry(.12,.16,.16),metal,[.34,-.075,-.83]);
+ const lens=new THREE.Mesh(new THREE.CircleGeometry(.045,16),new THREE.MeshBasicMaterial({color:0x577d77}));lens.position.set(.34,-.075,-.933);fallback.add(lens);
+ loadWeaponModel("/assets/M4%2Bcarbine.glb","M4");
+ loadWeaponModel("/assets/MP-5.glb","MP5");
+ showWeaponModel(activeWeapon);
 }
-function makeOperator(p){const g=new THREE.Group(),team=p.team==="ATTACK",cloth=M(team?0x515b4a:0x444e55),armor=M(team?0x303a32:0x293238),skin=M(0x665747),helmet=M(team?0x30392f:0x242d33);
- add(g,new THREE.CapsuleGeometry(.34,.65,5,10),cloth,[0,1.08,0]);add(g,new THREE.BoxGeometry(.68,.58,.32),armor,[0,1.22,-.03]);add(g,new THREE.SphereGeometry(.22,16,12),skin,[0,1.82,0]);add(g,new THREE.SphereGeometry(.25,16,12),helmet,[0,1.98,0]);add(g,new THREE.BoxGeometry(.32,.07,.08),M(0x101718),[0,1.83,-.2]);add(g,new THREE.BoxGeometry(.32,.35,.16),armor,[0,1.34,.22]);
- for(let s of [-1,1]){add(g,new THREE.SphereGeometry(.16,12,10),armor,[s*.43,1.48,0]);add(g,new THREE.CapsuleGeometry(.095,.45,4,8),cloth,[s*.48,1.14,-.02],[0,0,s*.12]);add(g,new THREE.CapsuleGeometry(.13,.38,4,8),cloth,[s*.19,.48,0]);add(g,new THREE.BoxGeometry(.26,.16,.42),M(0x191e1c),[s*.19,.12,-.05])}
- add(g,new THREE.BoxGeometry(.12,.12,.9),M(0x171c1a,.45,.6),[.28,1.25,-.38]);scene.add(g);return g}
+function selectWeapon(name){if(!weapon||!["M4","MP5"].includes(name))return;activeWeapon=name;weaponKick=0;showWeaponModel(name);feed(name+" SELECTED");}
+function makeOperator(p){
+ const g=new THREE.Group(),team=p.team==="ATTACK";
+ let seed=0;for(const ch of String(p.id||p.name||"unit"))seed=(seed*31+ch.charCodeAt(0))>>>0;
+ const variant=seed%4,colors=team?[0x515b4a,0x59604b,0x3f5148,0x625b49]:[0x444e55,0x394852,0x50545a,0x35434a];
+ const cloth=M(colors[variant]),armor=M([0x303a32,0x293238,0x343b3d,0x252e2b][variant]),skin=M(0x665747),helmet=M([0x30392f,0x242d33,0x3c423b,0x252b30][variant]),gear=M([0x171d1a,0x4b5147,0x292e32,0x5a5143][variant]);
+ add(g,new THREE.CapsuleGeometry(.34,.65,5,10),cloth,[0,1.08,0]);
+ add(g,new THREE.BoxGeometry(.72,.58,.34),armor,[0,1.22,-.03]);
+ add(g,new THREE.SphereGeometry(.22,16,12),skin,[0,1.82,0]);
+ if(variant===1)add(g,new THREE.BoxGeometry(.43,.12,.35),helmet,[0,2.02,0]);
+ else add(g,new THREE.SphereGeometry(.25,16,12),helmet,[0,1.98,0]);
+ add(g,new THREE.BoxGeometry(.34,.075,.09),M(0x101718),[0,1.83,-.2]);
+ add(g,new THREE.BoxGeometry(.35,.38,.18),armor,[0,1.35,.22]);
+ // Distinct operator silhouettes: packs, radio aerial, shoulder protection and chest rig.
+ if(variant!==2)add(g,new THREE.BoxGeometry(.38,.48,.2),gear,[0,1.28,.31]);
+ if(variant===0||variant===3)add(g,new THREE.BoxGeometry(.12,.62,.18),gear,[.28,1.34,.18]);
+ for(let i=0;i<4;i++)add(g,new THREE.BoxGeometry(.12,.13,.09),gear,[-.22+i*.145,1.38,-.225]);
+ if(variant===1||variant===3){const aerial=add(g,new THREE.CylinderGeometry(.012,.012,.48,6),M(0x171d1a),[.2,2.12,.12]);aerial.rotation.z=-.12}
+ for(let s of [-1,1]){
+  add(g,new THREE.SphereGeometry(.17,12,10),gear,[s*.43,1.48,0]);
+  add(g,new THREE.CapsuleGeometry(.095,.45,4,8),cloth,[s*.48,1.14,-.02],[0,0,s*.12]);
+  add(g,new THREE.CapsuleGeometry(.13,.38,4,8),cloth,[s*.19,.48,0]);
+  add(g,new THREE.BoxGeometry(.28,.17,.22),gear,[s*.19,.38,-.01]);
+  add(g,new THREE.BoxGeometry(.26,.16,.42),M(0x191e1c),[s*.19,.12,-.05]);
+ }
+ add(g,new THREE.BoxGeometry(.12,.12,.9),M(0x171c1a,.45,.6),[.28,1.25,-.38]);
+ return g
+}
 function updateRemotes(players){for(const p of players){if(p.id===myId)continue;let g=remote.get(p.id);if(!g){g=makeOperator(p);remote.set(p.id,g)}g.visible=p.alive;g.position.set(p.x,0,p.z);g.rotation.y=p.yaw}const ids=new Set(players.map(p=>p.id));for(const [id,g] of remote)if(!ids.has(id)){scene.remove(g);remote.delete(id)}}
 function initThree(){scene=new THREE.Scene();camera=new THREE.PerspectiveCamera(76,innerWidth/innerHeight,.08,140);camera.rotation.order="YXZ";camera.position.set(12,3.4,17);scene.add(camera);renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:"high-performance"});renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;$("game").appendChild(renderer.domElement);clock=new THREE.Clock();buildMap();makeWeapon();weapon.visible=false;
  addEventListener("resize",()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});renderer.domElement.tabIndex=0;renderer.domElement.addEventListener("click",()=>{if(inGame&&!document.pointerLockElement){renderer.domElement.focus();renderer.domElement.requestPointerLock()}});
  document.addEventListener("mousemove",e=>{if(document.pointerLockElement===renderer.domElement){yaw-=e.movementX*.0019;pitch-=e.movementY*.0019;pitch=THREE.MathUtils.clamp(pitch,-1.48,1.48);camera.rotation.set(pitch,yaw,0,"YXZ")}});
- document.addEventListener("keydown",e=>{const typing=e.target instanceof HTMLInputElement||e.target instanceof HTMLTextAreaElement;if(inGame&&!typing&&["KeyW","KeyA","KeyS","KeyD","ShiftLeft","ShiftRight","KeyC","Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.code))e.preventDefault();if(!typing)keys[e.code]=true;if(e.code==="Enter"&&inGame){e.preventDefault();$("chatinput").focus()}if(e.code==="KeyR"&&inGame&&!e.repeat&&!typing)reload();if(e.code==="KeyC"&&inGame)crouched=true});document.addEventListener("keyup",e=>{keys[e.code]=false;if(e.code==="KeyC")crouched=false});
+ document.addEventListener("keydown",e=>{const typing=e.target instanceof HTMLInputElement||e.target instanceof HTMLTextAreaElement;if(inGame&&!typing&&["KeyW","KeyA","KeyS","KeyD","ShiftLeft","ShiftRight","KeyC","Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.code))e.preventDefault();if(!typing)keys[e.code]=true;if(e.code==="Enter"&&inGame){e.preventDefault();$("chatinput").focus()}if(e.code==="KeyR"&&inGame&&!e.repeat&&!typing)reload();if(inGame&&!typing&&!e.repeat&&e.code==="Digit1")selectWeapon("M4");if(inGame&&!typing&&!e.repeat&&e.code==="Digit2")selectWeapon("MP5");if(e.code==="KeyC"&&inGame)crouched=true});document.addEventListener("keyup",e=>{keys[e.code]=false;if(e.code==="KeyC")crouched=false});
  document.addEventListener("mousedown",e=>{if(e.button===2){aiming=true;e.preventDefault()}if(e.button===0&&inGame)shoot()});document.addEventListener("mouseup",e=>{if(e.button===2)aiming=false});document.addEventListener("contextmenu",e=>e.preventDefault());animate()}
 function collides(x,z,r=.34){for(const c of colliders){const a=THREE.MathUtils.clamp(x,c.min.x,c.max.x),b=THREE.MathUtils.clamp(z,c.min.z,c.max.z);if((x-a)**2+(z-b)**2<r*r)return true}return false}
 function move(dt){if(!inGame)return;const locked=document.pointerLockElement===renderer.domElement,f=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)),r=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw)),d=new THREE.Vector3();if(keys.KeyW)d.add(f);if(keys.KeyS)d.sub(f);if(keys.KeyD)d.add(r);if(keys.KeyA)d.sub(r);if(d.lengthSq())d.normalize();const sprint=keys.ShiftLeft||keys.ShiftRight,speed=crouched?2.1:sprint?7.1:4.1;
