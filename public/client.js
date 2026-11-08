@@ -145,7 +145,7 @@ function makeVXR9(){
  const bolt=new THREE.Group();bolt.name="vxr-bolt";
  put(new THREE.CapsuleGeometry(.025,.22,3,10),dark,[0,0,0],[Math.PI/2,0,0],bolt);
  put(new THREE.CylinderGeometry(.014,.014,.025,8),steel,[0,0,-.11],[Math.PI/2,0,0],bolt);
- bolt.position.set(.035,.045,-.35);g.add(bolt);
+ bolt.position.set(.082,.045,-.35);g.add(bolt);
  const charging=put(new THREE.CylinderGeometry(.012,.012,.095,10),steel,[.084,.045,-.35],[0,0,Math.PI/2]);charging.name="vxr-charging-handle";
  // Arms and hands use narrow capsule segments, positioned under the optic's sight line.
  const leftArm=new THREE.Group();leftArm.name="vxr-left-arm";g.add(leftArm);
@@ -295,7 +295,7 @@ function move(dt){if(!inGame)return;const locked=document.pointerLockElement===r
 function updateAmmo(){const a=$("ammo-mag"),b=$("ammo-reserve");if(a)a.textContent=String(magazine).padStart(2,"0");if(b)b.textContent=String(reserveAmmo).padStart(3,"0")}
 function reload(){
  if(!inGame||reloading||magazine===30||reserveAmmo<=0||knifeActive||planting)return;
- const empty=magazine===0,duration=empty?3600:2600;reloading=true;playAction(empty?"empty-reload":"reload",duration);
+ const empty=magazine===0,duration=empty?3600:2600;boltCycleStart=0;boltCasingPending=false;reloading=true;playAction(empty?"empty-reload":"reload",duration);
  feed(empty?"EMPTY // MAGAZINE + BOLT":"RELOADING");
  setTimeout(()=>{
   const n=Math.min(30-magazine,reserveAmmo);magazine+=n;reserveAmmo-=n;reloading=false;
