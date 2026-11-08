@@ -224,7 +224,7 @@ function move(dt){if(!inGame)return;const locked=document.pointerLockElement===r
  if(inGame){const nx=camera.position.x+d.x*speed*dt,nz=camera.position.z+d.z*speed*dt;if(!collides(nx,camera.position.z))camera.position.x=nx;if(!collides(camera.position.x,nz))camera.position.z=nz}camera.position.y=THREE.MathUtils.damp(camera.position.y,crouched?1.18:1.68,13,dt);if(d.lengthSq()&&locked)walkTime+=dt*(sprint?13:8);
  if(fireHeld)shoot();weaponKick=Math.max(0,weaponKick-dt*3.5);
  const elapsed=actionAnim?performance.now()-actionStart:99999,progress=actionDuration?THREE.MathUtils.clamp(elapsed/actionDuration,0,1):1;
- if(actionAnim&&progress>=1){if(actionAnim!=="reload"&&actionAnim!=="plant")actionAnim="";if(actionAnim==="plant"&&!bombPlanted)planting=false}
+ if(actionAnim&&progress>=1){if(actionAnim==="plant"&&!bombPlanted)planting=false;if(actionAnim!=="reload")actionAnim=""}
  if(knifeGroup&&knifeActive){const p=THREE.MathUtils.clamp(elapsed/560,0,1),stab=Math.sin(Math.min(1,p*1.7)*Math.PI/2);knifeGroup.position.set(.48-stab*.48,-.38+stab*.17,-.72-stab*.7);knifeGroup.rotation.set(-.25-stab*.95,-.18+stab*.18,-.2-stab*.42)}
  if(knifeGroup&&!knifeActive){knifeGroup.position.lerp(knifeGroup.userData.rest.position,1-Math.exp(-18*dt));knifeGroup.rotation.x=THREE.MathUtils.damp(knifeGroup.rotation.x,knifeGroup.userData.rest.rotation.x,16,dt);knifeGroup.rotation.y=THREE.MathUtils.damp(knifeGroup.rotation.y,knifeGroup.userData.rest.rotation.y,16,dt);knifeGroup.rotation.z=THREE.MathUtils.damp(knifeGroup.rotation.z,knifeGroup.userData.rest.rotation.z,16,dt)}
  recoilOffset=THREE.MathUtils.damp(recoilOffset,0,5.2,dt);const reloadDip=actionAnim==="reload"?Math.sin(Math.PI*progress)*.34:0,plantDip=actionAnim==="plant"?Math.sin(Math.PI*progress)*.55:0;
