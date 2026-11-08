@@ -73,6 +73,12 @@ function buildMap(){
  }
  // Floor lane markings, broken at walls/doors for subtle industrial navigation.
  for(const z of [-20,-11,0,11,20]){const line=new THREE.Mesh(new THREE.BoxGeometry(52,.012,.025),new THREE.MeshBasicMaterial({color:0x95896c}));line.position.set(0,.012,z);scene.add(line)}
+ // Wall conduits, cable clamps, diagonal braces and worn floor marks add surface-level industrial detail.
+ for(const z of [-21.35,21.35]){const pipe=new THREE.Mesh(new THREE.CylinderGeometry(.055,.055,52,12),mats.steel);pipe.rotation.z=Math.PI/2;pipe.position.set(0,4.45,z);scene.add(pipe);for(let x=-24;x<=24;x+=4){const clamp=new THREE.Mesh(new THREE.TorusGeometry(.075,.018,6,12),mats.black);clamp.rotation.y=Math.PI/2;clamp.position.set(x,4.45,z);scene.add(clamp)}}
+ for(const x of [-26.9,26.9])for(let z=-18;z<=18;z+=6){const rib=new THREE.Mesh(new THREE.CylinderGeometry(.045,.045,4.9,8),mats.steel);rib.position.set(x,2.7,z);scene.add(rib)}
+ const brace=(a,b,r=.055)=>{const av=new THREE.Vector3(...a),bv=new THREE.Vector3(...b),delta=bv.clone().sub(av),mesh=new THREE.Mesh(new THREE.CylinderGeometry(r,r,delta.length(),8),mats.steel);mesh.position.copy(av.add(bv).multiplyScalar(.5));mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());scene.add(mesh)};
+ for(const x of [-13,0,13]){brace([x-.8,.18,-8],[x+.8,3.2,-8]);brace([x+.8,.18,8],[x-.8,3.2,8])}
+ for(const [x,z,scale] of [[-12,-4,1.2],[11,8,.9],[-4,17,.7],[18,-12,1.1]]){const scuff=new THREE.Mesh(new THREE.CircleGeometry(scale,24),new THREE.MeshBasicMaterial({color:0x343a35,transparent:true,opacity:.22,depthWrite:false}));scuff.rotation.x=-Math.PI/2;scuff.position.set(x,.018,z);scene.add(scuff)}
 }
 function add(parent,geo,mat,pos,rot){const o=new THREE.Mesh(geo,mat);o.position.set(...pos);if(rot)o.rotation.set(...rot);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o}
 let activeWeapon="VXR-9",destructibles=[],debris=[],leanValue=0,leanApplied=0,muzzleFlash=null,flashLight=null,tracers=[],targetMeshes=[],rangeMode=false,rangeHits=0;
