@@ -93,10 +93,7 @@ function showWeaponModel(name){
  const old=weapon.getObjectByName("loaded-weapon");if(old)weapon.remove(old);
  const model=makeVXR9();if(model){
   const holder=new THREE.Group();holder.name="loaded-weapon";holder.position.set(.30,-.27,-.88);holder.userData.hipPosition=new THREE.Vector3(.30,-.27,-.88);holder.userData.adsPosition=new THREE.Vector3(-.035,-.19,-.63);
-  model.traverse(o=>{if(o.isMesh&&o.material){
-   const darken=m=>{const mat=m.clone();if(mat.color)mat.color.set(0x303538);if(mat.emissive)mat.emissive.set(0x101315);mat.roughness=.76;mat.metalness=Math.min(mat.metalness??0,.28);return mat};
-   o.material=Array.isArray(o.material)?o.material.map(darken):darken(o.material);o.frustumCulled=false;o.castShadow=true;
-  }});
+  model.traverse(o=>{if(o.isMesh){o.frustumCulled=false;o.castShadow=true;o.receiveShadow=true}});
   holder.add(model);weapon.add(holder);
  }
  const fallback=weapon.getObjectByName("procedural-fallback");if(fallback)fallback.visible=!model;
