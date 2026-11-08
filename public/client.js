@@ -85,7 +85,7 @@ function loadWeaponModel(url,name){
   const normalized=new THREE.Group();normalized.add(source);
   source.position.sub(center);source.scale.setScalar(1.08/length);
   const longAxis=[new THREE.Vector3(1,0,0),new THREE.Vector3(0,1,0),new THREE.Vector3(0,0,1)][axis];
-  normalized.quaternion.setFromUnitVectors(longAxis,new THREE.Vector3(1,0,0));
+  normalized.quaternion.setFromUnitVectors(longAxis,new THREE.Vector3(0,0,-1));
   normalized.traverse(o=>{if(o.isMesh){o.frustumCulled=false;o.castShadow=true;o.receiveShadow=true;if(o.material){o.material.side=THREE.DoubleSide}}});
   normalized.updateMatrixWorld(true);
   const finalBounds=new THREE.Box3().setFromObject(normalized);
@@ -97,34 +97,38 @@ function loadWeaponModel(url,name){
  },undefined,e=>console.warn("Could not load "+name+" model; fallback remains active.",e));
 }
 function makeWeaponHands(holder){
- const glove=M(0x080a0b,.92,.02),sleeve=M(0x171b1d,.96,0),seam=M(0x252a2c,.9,0);
+ const glove=M(0x34393b,.88,.02),sleeve=M(0x242a2d,.95,0),cuff=M(0x41474a,.9,0);
  const part=(geo,mat,pos,rot)=>{const o=new THREE.Mesh(geo,mat);o.position.set(...pos);if(rot)o.rotation.set(...rot);o.frustumCulled=false;o.castShadow=true;holder.add(o);return o};
- // Sleeves extend in from the lower corners; padded gloves sit beneath the weapon.
- part(new THREE.CapsuleGeometry(.075,.34,5,9),sleeve,[-.18,-.37,.27],[0,0,-.58]);
- part(new THREE.CapsuleGeometry(.075,.34,5,9),sleeve,[.39,-.36,.27],[0,0,.58]);
- part(new THREE.SphereGeometry(.105,14,12),glove,[-.105,-.19,.075]);
- part(new THREE.SphereGeometry(.105,14,12),glove,[.315,-.19,.075]);
- // Fingers curl forward and upward around the handguard/grip.
+ part(new THREE.CapsuleGeometry(.075,.43,5,9),sleeve,[.12,-.57,-.88],[.18,0,-.22]);
+ part(new THREE.CapsuleGeometry(.075,.43,5,9),sleeve,[.49,-.56,-.58],[-.18,0,.32]);
+ part(new THREE.CylinderGeometry(.079,.079,.09,12),cuff,[.12,-.38,-.98],[.18,0,-.22]);
+ part(new THREE.CylinderGeometry(.079,.079,.09,12),cuff,[.49,-.37,-.68],[-.18,0,.32]);
+ part(new THREE.SphereGeometry(.095,14,12),glove,[.16,-.34,-1.02]);
+ part(new THREE.SphereGeometry(.09,14,12),glove,[.43,-.36,-.68]);
  for(let i=0;i<4;i++){
-  const z=-.015+i*.035;
-  part(new THREE.CapsuleGeometry(.026,.115,4,7),glove,[-.025+i*.018,-.135,z],[0,0,-.24]);
-  part(new THREE.CapsuleGeometry(.026,.12,4,7),glove,[.225+i*.018,-.135,z],[0,0,.24]);
+  part(new THREE.CapsuleGeometry(.022,.105,4,7),glove,[.085+i*.045,-.29,-1.11],[.28,0,-.18]);
+  part(new THREE.CapsuleGeometry(.022,.095,4,7),glove,[.36+i*.032,-.29,-.72],[.22,0,.2]);
  }
- part(new THREE.CapsuleGeometry(.027,.09,4,7),seam,[-.18,-.29,.03],[0,0,-.58]);
- part(new THREE.CapsuleGeometry(.027,.09,4,7),seam,[.39,-.29,.03],[0,0,.58]);
+ part(new THREE.CapsuleGeometry(.024,.085,4,7),glove,[.25,-.35,-.96],[0,0,-.75]);
+ part(new THREE.CapsuleGeometry(.024,.085,4,7),glove,[.49,-.35,-.59],[0,0,.7]);
 }
 function showWeaponModel(name){
  const old=weapon.getObjectByName("loaded-weapon");if(old)weapon.remove(old);
  const model=weaponModels[name];if(model){
-  const holder=new THREE.Group();holder.name="loaded-weapon";holder.position.set(.34,-.34,-.88);
-  model.traverse(o=>{if(o.isMesh&&o.material){const darken=m=>{const mat=m.clone();if(mat.color)mat.color.set(0x111315);if(mat.emissive)mat.emissive.set(0x000000);mat.roughness=.78;mat.metalness=Math.min(mat.metalness??0,.35);return mat};o.material=Array.isArray(o.material)?o.material.map(darken):darken(o.material);o.frustumCulled=false}});
-  holder.add(model);makeWeaponHands(holder);weapon.add(holder)
+  const holder=new THREE.Group();holder.name="loaded-weapon";holder.position.set(.30,-.27,-.88);
+  model.traverse(o=>{if(o.isMesh&&o.material){
+   const darken=m=>{const mat=m.clone();if(mat.color)mat.color.set(0x303538);if(mat.emissive)mat.emissive.set(0x101315);mat.roughness=.76;mat.metalness=Math.min(mat.metalness??0,.28);return mat};
+   o.material=Array.isArray(o.material)?o.material.map(darken):darken(o.material);o.frustumCulled=false;o.castShadow=true;
+  }});
+  holder.add(model);makeWeaponHands(holder);weapon.add(holder);
  }
  const fallback=weapon.getObjectByName("procedural-fallback");if(fallback)fallback.visible=!model;
  if($("weapon-name"))$("weapon-name").textContent=name==="M4"?"M4 CARBINE":"MP5";
 }
 function makeWeapon(){
  weapon=new THREE.Group();weapon.frustumCulled=false;weapon.renderOrder=10;camera.add(weapon);
+ const weaponFill=new THREE.PointLight(0xd9e2e6,1.35,3.8,2);weaponFill.position.set(.25,.15,-1.35);camera.add(weaponFill);
+ const weaponRim=new THREE.PointLight(0x87959b,.65,2.8,2);weaponRim.position.set(-.65,-.35,-1.05);camera.add(weaponRim);
  const fallback=new THREE.Group();fallback.name="procedural-fallback";weapon.add(fallback);
  const metal=M(0x171d1b,.35,.75),poly=M(0x343b35,.75,.1),steel=M(0x69716d,.3,.8),rubber=M(0x151918);
  const put=(geo,mat,pos,rot)=>{const o=new THREE.Mesh(geo,mat);o.position.set(...pos);if(rot)o.rotation.set(...rot);o.frustumCulled=false;fallback.add(o);return o};
