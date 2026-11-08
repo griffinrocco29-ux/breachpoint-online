@@ -1,189 +1,23 @@
-const express = require("express");
-const http = require("http");
-const { Server } = require("socket.io");
-const path = require("path");
-const crypto = require("crypto");
-
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: "*" },
-  pingInterval: 10000,
-  pingTimeout: 20000
-});
-
-app.use(express.static(path.join(__dirname, "public")));
-
-const PORT = process.env.PORT || 3000;
-const rooms = new Map();
-
-function makeCode() {
-  return crypto.randomBytes(3).toString("hex").toUpperCase();
-}
-function getRoom(code) {
-  return rooms.get(code);
-}
-function publicPlayers(room) {
-  return [...room.players.values()].map(p => ({
-    id: p.id, name: p.name, team: p.team,
-    x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch,
-    health: p.health, alive: p.alive, weapon: p.weapon
-  }));
-}
-function emitState(code) {
-  const room = getRoom(code);
-  if (!room) return;
-  io.to(code).emit("room-state", {
-    code, phase: room.phase, round: room.round,
-    timeLeft: room.timeLeft, players: publicPlayers(room)
-  });
-}
-function createRoom(ownerId, isPrivate = false) {
-  let code;
-  do { code = makeCode(); } while (rooms.has(code));
-  const room = {
-    code, private: isPrivate, phase: "LOBBY", round: 1,
-    timeLeft: 30, players: new Map(), ownerId,
-    interval: null
-  };
-  rooms.set(code, room);
-  return room;
-}
-function assignTeam(room) {
-  const attackers = [...room.players.values()].filter(p => p.team === "ATTACK");
-  const defenders = [...room.players.values()].filter(p => p.team === "DEFEND");
-  return attackers.length <= defenders.length ? "ATTACK" : "DEFEND";
-}
-function startRound(room) {
-  room.phase = "PREP";
-  room.timeLeft = 15;
-  room.round += room.round === 1 && room.players.size ? 0 : 0;
-  for (const p of room.players.values()) {
-    p.health = 100; p.alive = true;
-    p.x = p.team === "ATTACK" ? -12 : 12;
-    p.y = 1.7; p.z = (Math.random() - .5) * 5;
-  }
-  clearInterval(room.interval);
-  room.interval = setInterval(() => {
-    if (!rooms.has(room.code)) return;
-    room.timeLeft--;
-    if (room.timeLeft <= 0) {
-      if (room.phase === "PREP") { room.phase = "ACTION"; room.timeLeft = 180; }
-      else if (room.phase === "ACTION") { room.phase = "END"; room.timeLeft = 8; }
-      else { room.round++; startRound(room); }
-    }
-    emitState(room.code);
-  }, 1000);
-  emitState(room.code);
-}
-
-io.on("connection", socket => {
-  socket.on("create-room", ({ name, isPrivate } = {}, cb = () => {}) => {
-    const room = createRoom(socket.id, !!isPrivate);
-    const player = {
-      id: socket.id, name: String(name || "Operator").slice(0, 16),
-      team: "ATTACK", x: -12, y: 1.7, z: 0, yaw: 0, pitch: 0,
-      health: 100, alive: true, weapon: "RIFLE"
-    };
-    room.players.set(socket.id, player);
-    socket.join(room.code);
-    cb({ ok: true, code: room.code, playerId: socket.id });
-    emitState(room.code);
-  });
-
-  socket.on("quick-join", ({ name } = {}, cb = () => {}) => {
-    let room = [...rooms.values()].find(r => !r.private && r.phase === "LOBBY" && r.players.size < 10);
-    if (!room) room = createRoom(socket.id, false);
-    const player = {
-      id: socket.id, name: String(name || "Operator").slice(0, 16),
-      team: assignTeam(room), x: 12, y: 1.7, z: (Math.random() - .5) * 5,
-      yaw: Math.PI, pitch: 0, health: 100, alive: true, weapon: "RIFLE"
-    };
-    room.players.set(socket.id, player);
-    socket.join(room.code);
-    cb({ ok: true, code: room.code, playerId: socket.id });
-    emitState(room.code);
-  });
-
-  socket.on("join-room", ({ code, name } = {}, cb = () => {}) => {
-    code = String(code || "").toUpperCase().trim();
-    const room = getRoom(code);
-    if (!room) return cb({ ok: false, error: "Room not found." });
-    if (room.players.size >= 10) return cb({ ok: false, error: "Room is full." });
-    const player = {
-      id: socket.id, name: String(name || "Operator").slice(0, 16),
-      team: assignTeam(room), x: 12, y: 1.7, z: (Math.random() - .5) * 5,
-      yaw: Math.PI, pitch: 0, health: 100, alive: true, weapon: "RIFLE"
-    };
-    room.players.set(socket.id, player);
-    socket.join(code);
-    cb({ ok: true, code, playerId: socket.id });
-    emitState(code);
-  });
-
-  socket.on("start-match", ({ code } = {}) => {
-    const room = getRoom(String(code || "").toUpperCase());
-    if (!room || room.ownerId !== socket.id || room.players.size < 1) return;
-    room.round = 1;
-    startRound(room);
-  });
-
-  socket.on("player-update", data => {
-    const room = [...rooms.values()].find(r => r.players.has(socket.id));
-    if (!room) return;
-    const p = room.players.get(socket.id);
-    if (!p || !p.alive) return;
-    const clamp = (v, min, max) => Math.max(min, Math.min(max, Number(v) || 0));
-    p.x = clamp(data.x, -22, 22);
-    p.y = clamp(data.y, 0.5, 5);
-    p.z = clamp(data.z, -16, 16);
-    p.yaw = clamp(data.yaw, -1000, 1000);
-    p.pitch = clamp(data.pitch, -1.55, 1.55);
-    p.weapon = "RIFLE";
-    socket.to(room.code).volatile.emit("player-moved", {
-      id: p.id, x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch
-    });
-  });
-
-  socket.on("fire", ({ targetId } = {}) => {
-    const room = [...rooms.values()].find(r => r.players.has(socket.id));
-    if (!room || room.phase !== "ACTION") return;
-    const shooter = room.players.get(socket.id);
-    const target = room.players.get(targetId);
-    if (!shooter || !target || !target.alive || target.team === shooter.team) return;
-    // Starter implementation: server validates room, phase, life state and opposing team.
-    // Upgrade with server-side ray/physics validation before public competitive use.
-    target.health = Math.max(0, target.health - 34);
-    if (target.health === 0) target.alive = false;
-    io.to(room.code).emit("shot-result", {
-      shooterId: socket.id, targetId, health: target.health, alive: target.alive
-    });
-    emitState(room.code);
-  });
-
-  socket.on("chat", ({ code, message } = {}) => {
-    const room = getRoom(String(code || "").toUpperCase());
-    const player = room && room.players.get(socket.id);
-    if (!player) return;
-    io.to(room.code).emit("chat", {
-      name: player.name, message: String(message || "").slice(0, 180)
-    });
-  });
-
-  socket.on("disconnect", () => {
-    for (const [code, room] of rooms) {
-      if (room.players.delete(socket.id)) {
-        io.to(code).emit("player-left", { id: socket.id });
-        if (room.players.size === 0) {
-          clearInterval(room.interval);
-          rooms.delete(code);
-        } else {
-          if (room.ownerId === socket.id) room.ownerId = room.players.keys().next().value;
-          emitState(code);
-        }
-      }
-    }
-  });
-});
-
-server.listen(PORT, () => console.log(`Breachpoint running on ${PORT}`));
+const express=require("express"),http=require("http"),{Server}=require("socket.io"),path=require("path"),crypto=require("crypto");
+const app=express(),server=http.createServer(app),io=new Server(server,{cors:{origin:"*"},pingInterval:10000,pingTimeout:20000});
+app.use(express.static(path.join(__dirname,"public")));const PORT=process.env.PORT||3000,rooms=new Map();
+app.get("/health",(req,res)=>res.json({ok:true,service:"BREACHPOINT",rooms:rooms.size}));
+function code(){return crypto.randomBytes(3).toString("hex").toUpperCase()}function room(c){return rooms.get(c)}
+function players(r){return [...r.players.values()].map(p=>({id:p.id,name:p.name,team:p.team,x:p.x,y:p.y,z:p.z,yaw:p.yaw,pitch:p.pitch,health:p.health,alive:p.alive,weapon:p.weapon}))}
+function state(c){const r=room(c);if(r)io.to(c).emit("room-state",{code:c,phase:r.phase,round:r.round,timeLeft:r.timeLeft,players:players(r)})}
+function create(owner,priv){let c;do{c=code()}while(rooms.has(c));const r={code:c,private:priv,phase:"LOBBY",round:1,timeLeft:30,players:new Map(),ownerId:owner,interval:null};rooms.set(c,r);return r}
+function team(r){const a=[...r.players.values()].filter(p=>p.team==="ATTACK").length,d=[...r.players.values()].filter(p=>p.team==="DEFEND").length;return a<=d?"ATTACK":"DEFEND"}
+function spawn(t){return t==="ATTACK"?{x:-21,y:1.68,z:(Math.random()-.5)*7,yaw:-Math.PI/2}:{x:21,y:1.68,z:(Math.random()-.5)*7,yaw:Math.PI/2}}
+function addPlayer(s,r,n){const t=team(r),p={id:s.id,name:String(n||"Operator").replace(/[<>]/g,"").slice(0,16),team:t,...spawn(t),pitch:0,health:100,alive:true,weapon:"CARBINE"};r.players.set(s.id,p);s.join(r.code);return p}
+function find(id){for(const r of rooms.values())if(r.players.has(id))return r;return null}
+function startRound(r){r.phase="PREP";r.timeLeft=15;for(const p of r.players.values())Object.assign(p,spawn(p.team),{health:100,alive:true,pitch:0});clearInterval(r.interval);r.interval=setInterval(()=>{if(!rooms.has(r.code))return;r.timeLeft--;if(r.timeLeft<=0){if(r.phase==="PREP"){r.phase="ACTION";r.timeLeft=180}else if(r.phase==="ACTION"){r.phase="END";r.timeLeft=8}else{r.round++;startRound(r);return}}state(r.code)},1000);state(r.code)}
+io.on("connection",s=>{
+ s.on("create-room",({name,isPrivate}={},cb=()=>{})=>{const r=create(s.id,!!isPrivate),p=addPlayer(s,r,name);cb({ok:true,code:r.code,playerId:p.id});state(r.code)});
+ s.on("quick-join",({name}={},cb=()=>{})=>{let r=[...rooms.values()].find(x=>!x.private&&x.phase==="LOBBY"&&x.players.size<10);if(!r)r=create(s.id,false);const p=addPlayer(s,r,name);cb({ok:true,code:r.code,playerId:p.id});state(r.code)});
+ s.on("join-room",({code:c,name}={},cb=()=>{})=>{c=String(c||"").toUpperCase().trim();const r=room(c);if(!r)return cb({ok:false,error:"Session not found."});if(r.players.size>=10||r.phase!=="LOBBY")return cb({ok:false,error:"Session is full or already active."});const p=addPlayer(s,r,name);cb({ok:true,code:c,playerId:p.id});state(c)});
+ s.on("start-match",({code:c}={})=>{const r=room(String(c||"").toUpperCase());if(!r||r.ownerId!==s.id||r.phase!=="LOBBY")return;r.round=1;startRound(r)});
+ s.on("player-update",d=>{const r=find(s.id);if(!r||r.phase==="LOBBY")return;const p=r.players.get(s.id);if(!p||!p.alive)return;const clamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)||0));p.x=clamp(d.x,-26,26);p.y=clamp(d.y,.9,2);p.z=clamp(d.z,-20,20);p.yaw=clamp(d.yaw,-1000,1000);p.pitch=clamp(d.pitch,-1.55,1.55);s.to(r.code).volatile.emit("player-moved",{id:p.id,x:p.x,y:p.y,z:p.z,yaw:p.yaw,pitch:p.pitch})});
+ s.on("fire",({origin,direction,targetId}={})=>{const r=find(s.id);if(!r||r.phase!=="ACTION")return;const a=r.players.get(s.id),b=r.players.get(targetId);if(!a||!b||!a.alive||!b.alive||a.team===b.team||!Array.isArray(origin)||!Array.isArray(direction)||origin.length!==3||direction.length!==3)return;const [ox,oy,oz]=origin.map(Number),[dx,dy,dz]=direction.map(Number);if(![ox,oy,oz,dx,dy,dz].every(Number.isFinite))return;if(Math.hypot(ox-a.x,oz-a.z)>2.4||Math.abs(oy-a.y)>1.2)return;const tx=b.x-a.x,tz=b.z-a.z,dist=Math.hypot(tx,tz),len=Math.hypot(dx,dy,dz)||1;if(dist>55||dist<.5||((dx/len)*(tx/dist)+(dz/len)*(tz/dist))<.975)return;b.health=Math.max(0,b.health-34);if(!b.health)b.alive=false;io.to(r.code).emit("shot-result",{shooterId:s.id,targetId,health:b.health,alive:b.alive});state(r.code)});
+ s.on("chat",({code:c,message}={})=>{const r=room(String(c||"").toUpperCase()),p=r&&r.players.get(s.id);if(!p)return;const m=String(message||"").replace(/[<>]/g,"").slice(0,180);if(m)io.to(r.code).emit("chat",{name:p.name,message:m})});
+ s.on("disconnect",()=>{for(const [c,r] of rooms){if(r.players.delete(s.id)){io.to(c).emit("player-left",{id:s.id});if(!r.players.size){clearInterval(r.interval);rooms.delete(c)}else{if(r.ownerId===s.id)r.ownerId=r.players.keys().next().value;state(c)}}}})
+});server.listen(PORT,()=>console.log("BREACHPOINT listening on "+PORT));
