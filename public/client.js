@@ -21,43 +21,55 @@ function cyl(x,y,z,r,h,mat){const o=new THREE.Mesh(new THREE.CylinderGeometry(r,
 function crate(x,z,w=1.7,h=1.3,d=1.4){box(x,h/2,z,w,h,d,wood);for(let y=.2;y<h;y+=.28)box(x,y,z-d/2-.02,w*.92,.035,.035,mats.steel,false)}
 function barrel(x,z){cyl(x,.55,z,.38,1.1,mats.red);for(const y of [.2,.88])cyl(x,y,z,.395,.045,mats.steel)}
 function buildMap(){
- scene.background=new THREE.Color(0x89918b);scene.fog=new THREE.FogExp2(0x7b847e,.018);scene.add(new THREE.HemisphereLight(0xd3ddd4,0x252a27,1.3));
- const sun=new THREE.DirectionalLight(0xffe8c9,2);sun.position.set(-18,26,12);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-34;sun.shadow.camera.right=34;sun.shadow.camera.top=34;sun.shadow.camera.bottom=-34;scene.add(sun);
+ scene.background=new THREE.Color(0x89918b);scene.fog=new THREE.FogExp2(0x7b847e,.019);
+ scene.add(new THREE.HemisphereLight(0xd3ddd4,0x252a27,1.15));
+ const sun=new THREE.DirectionalLight(0xffe8c9,1.65);sun.position.set(-18,26,12);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-34;sun.shadow.camera.right=34;sun.shadow.camera.top=34;sun.shadow.camera.bottom=-34;scene.add(sun);
+ // Warehouse shell.
  box(0,-.25,0,56,.5,44,concrete,false);box(0,5.5,0,56,.4,44,mats.dark,false);
  box(0,2.7,-22,56,5.5,.65,concrete);box(0,2.7,22,56,5.5,.65,concrete);box(-28,2.7,0,.65,5.5,44,concrete);box(28,2.7,0,.65,5.5,44,concrete);
- for(let x=-24;x<=24;x+=8){for(let z of [-18,0,18]){box(x,2.65,z,.65,5.3,.65,mats.dark);box(x,5.15,z,.95,.2,.95,mats.steel,false)}box(x,5.15,0,.16,.18,43,mats.black,false)}
- for(let z=-18;z<=18;z+=6)box(0,5.18,z,55,.16,.16,mats.black,false);
- box(-9,2.4,-10,.35,4.8,17,concrete);box(9,2.4,10,.35,4.8,17,concrete);box(-18,2.4,0,10,.35,4.8,concrete);box(18,2.4,0,10,.35,4.8,concrete);box(0,2.4,-8,16,.35,4.8,concrete);box(0,2.4,8,16,.35,4.8,concrete);
- box(0,.65,0,3.8,1.3,2.2,mats.black);box(0,1.35,0,3.2,.12,1.7,mats.steel,false);
- for(let x of [-1.25,1.25]){box(x,1.62,0,.1,.4,.1,mats.olive,false);box(x,1.62,.5,.1,.4,.1,mats.olive,false)}
- crate(-15,-12,2.2,1.7,1.6);crate(-18,12);crate(15,12,2,1.6,1.5);crate(18,-12);crate(-5,-15,1.4,1.1,1.1);crate(5,15,1.4,1.1,1.1);
- barrel(-12,-4);barrel(-13,-5);barrel(13,4);barrel(14,5);
- for(let x of [-19,19])for(let i=0;i<4;i++){const b=new THREE.Mesh(new THREE.SphereGeometry(.42,12,8),mats.olive);b.scale.set(1,.55,.7);b.position.set(x+(i-1.5)*.65,.3,x<0?-2:2);scene.add(b)}
- for(let x of [-23,23])for(let z of [-12,-6,6,12]){box(x,1.2,z,.6,2.4,2.4,mats.black);for(let y of [.45,1.25,2.05])box(x+(x<0?.38:-.38),y,z,1.1,.08,2.2,mats.steel,false)}
- for(let x=-20;x<=20;x+=10)for(let z of [-12,0,12]){box(x,5.02,z,2.1,.1,.7,mats.black,false);const l=new THREE.PointLight(0xffdfb0,48,11,2);l.position.set(x,4.7,z);scene.add(l);const glow=new THREE.Mesh(new THREE.BoxGeometry(1.6,.03,.4),new THREE.MeshBasicMaterial({color:0xffe7c4}));glow.position.set(x,4.95,z);scene.add(glow)}
- for(let x=-24;x<=24;x+=4){const l=new THREE.Mesh(new THREE.BoxGeometry(.025,.008,40),new THREE.MeshBasicMaterial({color:0x95896c}));l.position.set(x,.012,0);scene.add(l)}
- // Extra interior cover creates staggered lanes instead of one long open shooting gallery.
- for(const z of [-14,14]){
-  box(-10,1.15,z,5.2,2.3,.55,mats.dark);box(10,1.15,-z,5.2,2.3,.55,mats.dark);
-  for(const x of [-12,-8,8,12])box(x,2.35,z,.12,.12,1.2,mats.steel,false);
+ // Three staggered cross-partitions create west, central and east combat sectors.
+ // Each partition deliberately leaves an offset doorway, preventing a single long sightline.
+ const partition=(x,gapZ)=>{for(const [a,b] of [[-20,gapZ-2.1],[gapZ+2.1,20]]){const len=b-a;if(len>0)box(x,1.85,(a+b)/2,.42,3.7,len,concrete)}box(x,3.8,gapZ,.5,.25,4.2,mats.steel,false)};
+ partition(-13,-8);partition(0,8);partition(13,-8);
+ // Cross-walls split each side into connected rooms; openings alternate to form an S-shaped route.
+ const cross=(z,gapX)=>{for(const [a,b] of [[-27,gapX-2.2],[gapX+2.2,27]]){const len=b-a;if(len>0)box((a+b)/2,1.75,z,len,3.5,.42,concrete)}box(gapX,3.55,z,4.4,.22,.5,mats.steel,false)};
+ cross(-11,-5);cross(11,5);
+ // Reinforced door jambs and overhead lintels make openings read as actual doorways.
+ for(const [x,z] of [[-13,-8],[0,8],[13,-8]])for(const side of [-1,1]){
+  box(x,1.75,z+side*2.15,.48,3.5,.32,mats.dark);
+  box(x,3.52,z+side*2.15,.72,.18,.42,mats.steel,false);
  }
- // Offset chest-high barriers leave deliberate doorways between each lane.
- for(const x of [-15,-5,5,15]){
-  const z=x<0?5:-5;
-  box(x,0.72,z,3.8,1.44,.48,mats.steel);
-  box(x+(x<0?2.4:-2.4),0.72,-z,2.4,1.44,.48,mats.dark);
+ // Central objective / loading island with multiple approach angles.
+ box(0,.85,0,5.2,1.7,3.6,mats.black);box(0,1.74,0,4.6,.12,3.1,mats.steel,false);
+ for(const x of [-1.8,1.8])for(const z of [-1.1,1.1])box(x,2.02,z,.12,.5,.12,mats.olive,false);
+ // Storage racks against walls, with shelves and upright supports.
+ for(const x of [-24,24])for(const z of [-15,-5,5,15]){
+  box(x,1.55,z,.55,3.1,3.4,mats.black);
+  for(const y of [.65,1.55,2.45])box(x+(x<0?.34:-.34),y,z,1.1,.09,3.2,mats.steel,false);
  }
- // Cargo stacks, pallet piles and waist-high concrete blocks provide close-range cover.
- crate(-11,0,2.1,1.35,1.35);crate(11,0,2.1,1.35,1.35);
- crate(-3,-13,1.8,1.2,1.2);crate(3,13,1.8,1.2,1.2);
- for(const x of [-19,-7,7,19])for(const z of [-8,8]){
-  box(x,.48,z,1.5,.96,1.1,mats.concrete);
-  box(x,.99,z,1.35,.06,.96,mats.steel,false);
+ // Palletized cargo and chest-high cover in each sector; gaps preserve flanking routes.
+ crate(-20,-15,2.2,1.8,1.8);crate(-19,1,2,1.4,1.6);crate(-7,-16,2.1,1.55,1.7);
+ crate(7,16,2.1,1.55,1.7);crate(19,-1,2,1.4,1.6);crate(20,15,2.2,1.8,1.8);
+ for(const [x,z] of [[-17,-6],[-9,5],[-4,-3],[5,3],[9,-5],[17,6]]){
+  box(x,.72,z,2.4,1.44,1.1,mats.steel);
+  box(x,.78,z+(z<0?2.2:-2.2),1.35,1.56,.85,mats.dark);
  }
- // Short divider walls create several connected rooms with offset entries.
- box(-3,1.35,-4,.35,2.7,7,concrete);box(3,1.35,4,.35,2.7,7,concrete);
- box(-12,1.35,3,5,.35,2.7,concrete);box(12,1.35,-3,5,.35,2.7,concrete);
-
+ // Forklift-like industrial props and barrels add visual landmarks.
+ for(const [x,z] of [[-22,8],[22,-8]]){
+  box(x,.65,z,2.5,1.3,1.45,mats.olive);box(x,1.45,z-.48,1.8,.3,.45,mats.black);
+  for(const side of [-1,1]){const wheel=new THREE.Mesh(new THREE.CylinderGeometry(.32,.32,.2,16),mats.black);wheel.rotation.z=Math.PI/2;wheel.position.set(x+side*1.05,.32,z+.35);scene.add(wheel)}
+  box(x+ (x<0?1.45:-1.45),1.25,z-.65,.12,2.5,.12,mats.steel);
+ }
+ for(const [x,z] of [[-22,-2],[-16,15],[16,-15],[22,2]]){barrel(x,z);barrel(x+.85,z+.15)}
+ // Ceiling trusses kept high and sparse so they don't visually cut through combat lanes.
+ for(const x of [-20,-10,0,10,20])box(x,5.15,0,.12,.18,42,mats.black,false);
+ for(const z of [-18,-9,0,9,18])box(0,5.15,z,54,.16,.12,mats.black,false);
+ for(const x of [-20,-8,8,20])for(const z of [-16,0,16]){
+  const light=new THREE.PointLight(0xffdfb0,24,9,2);light.position.set(x,4.65,z);scene.add(light);
+  const glow=new THREE.Mesh(new THREE.BoxGeometry(1.5,.035,.38),new THREE.MeshBasicMaterial({color:0xffe7c4}));glow.position.set(x,5.23,z);scene.add(glow);
+ }
+ // Floor lane markings, broken at walls/doors for subtle industrial navigation.
+ for(const z of [-20,-11,0,11,20]){const line=new THREE.Mesh(new THREE.BoxGeometry(52,.012,.025),new THREE.MeshBasicMaterial({color:0x95896c}));line.position.set(0,.012,z);scene.add(line)}
 }
 function add(parent,geo,mat,pos,rot){const o=new THREE.Mesh(geo,mat);o.position.set(...pos);if(rot)o.rotation.set(...rot);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o}
 let weaponModels={},activeWeapon="M4";
