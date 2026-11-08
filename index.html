@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>BREACHPOINT // Online Tactical FPS</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="/client.js"></script>
+</head>
+<body>
+  <div id="game"></div>
+  <div id="menu" class="overlay">
+    <div class="brand"><span class="slash">///</span> BREACHPOINT <small>TACTICAL RESPONSE UNIT</small></div>
+    <div class="menu-card">
+      <div class="eyebrow">ONLINE TACTICAL OPERATIONS</div>
+      <h1>ENTER THE<br><em>BREACH.</em></h1>
+      <p class="sub">5v5-inspired tactical combat. Squad up, breach in, secure the objective.</p>
+      <label>OPERATOR CALLSIGN</label>
+      <input id="name" maxlength="16" value="Rookie" placeholder="Your callsign">
+      <div class="actions">
+        <button id="quick" class="primary">QUICK JOIN <span>→</span></button>
+        <button id="create" class="secondary">CREATE PRIVATE LOBBY</button>
+      </div>
+      <div class="join-row">
+        <input id="room-code" maxlength="6" placeholder="ROOM CODE">
+        <button id="join" class="secondary">JOIN</button>
+      </div>
+      <div id="menu-status" class="status">CONNECTING TO MULTIPLAYER SERVER...</div>
+    </div>
+    <div class="foot">BROWSER FPS PROTOTYPE <span>•</span> ORIGINAL GAME CONCEPT</div>
+  </div>
+
+  <div id="lobby" class="overlay hidden">
+    <div class="lobby-card">
+      <div class="eyebrow">DEPLOYMENT LOBBY</div>
+      <h2>OPERATION <em>LOCKDOWN</em></h2>
+      <div class="roomline">ROOM CODE <strong id="code-display">------</strong><button id="copy-code">COPY</button></div>
+      <div id="players" class="players"></div>
+      <button id="start" class="primary wide">START MATCH →</button>
+      <p class="hint">Share the room code with friends. Up to 10 players can join.</p>
+      <button id="back" class="text-button">RETURN TO MENU</button>
+    </div>
+  </div>
+
+  <div id="hud" class="hidden">
+    <div class="topbar"><span>/// BREACHPOINT</span><span id="phase">LOBBY</span><span id="round">ROUND 01</span></div>
+    <div class="crosshair"><i></i><b></b></div>
+    <div class="bottom-left"><strong id="health">100</strong><small>VITALS</small></div>
+    <div class="bottom-right"><strong>30 <small>/ 150</small></strong><small>RIFLE // 5.56</small></div>
+    <div id="timer">03:00</div>
+    <div id="notice">WASD MOVE · MOUSE AIM · CLICK FIRE · ESC RELEASE MOUSE</div>
+    <div id="feed"></div>
+  </div>
+  <div id="end-screen" class="overlay hidden">
+    <div class="end-card"><div class="eyebrow">ROUND COMPLETE</div><h2 id="end-title">OPERATIONAL</h2><p>Waiting for the next deployment...</p><button id="continue" class="primary">CONTINUE</button></div>
+  </div>
+  <div id="chatbox" class="hidden"><div id="chatlog"></div><form id="chatform"><input id="chatinput" maxlength="180" placeholder="ENTER = CHAT"><button>↵</button></form></div>
+</body>
+</html>
