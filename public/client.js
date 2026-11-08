@@ -96,11 +96,32 @@ function loadWeaponModel(url,name){
   console.info("Loaded weapon asset:",name,"source axis",axis,"bounds",finalBounds.getSize(new THREE.Vector3()));
  },undefined,e=>console.warn("Could not load "+name+" model; fallback remains active.",e));
 }
+function makeWeaponHands(holder){
+ const glove=M(0x080a0b,.92,.02),sleeve=M(0x171b1d,.96,0),seam=M(0x252a2c,.9,0);
+ const part=(geo,mat,pos,rot)=>{const o=new THREE.Mesh(geo,mat);o.position.set(...pos);if(rot)o.rotation.set(...rot);o.frustumCulled=false;o.castShadow=true;holder.add(o);return o};
+ // Sleeves extend in from the lower corners; padded gloves sit beneath the weapon.
+ part(new THREE.CapsuleGeometry(.075,.34,5,9),sleeve,[-.18,-.37,.27],[0,0,-.58]);
+ part(new THREE.CapsuleGeometry(.075,.34,5,9),sleeve,[.39,-.36,.27],[0,0,.58]);
+ part(new THREE.SphereGeometry(.105,14,12),glove,[-.105,-.19,.075]);
+ part(new THREE.SphereGeometry(.105,14,12),glove,[.315,-.19,.075]);
+ // Fingers curl forward and upward around the handguard/grip.
+ for(let i=0;i<4;i++){
+  const z=-.015+i*.035;
+  part(new THREE.CapsuleGeometry(.026,.115,4,7),glove,[-.025+i*.018,-.135,z],[0,0,-.24]);
+  part(new THREE.CapsuleGeometry(.026,.12,4,7),glove,[.225+i*.018,-.135,z],[0,0,.24]);
+ }
+ part(new THREE.CapsuleGeometry(.027,.09,4,7),seam,[-.18,-.29,.03],[0,0,-.58]);
+ part(new THREE.CapsuleGeometry(.027,.09,4,7),seam,[.39,-.29,.03],[0,0,.58]);
+}
 function showWeaponModel(name){
  const old=weapon.getObjectByName("loaded-weapon");if(old)weapon.remove(old);
- const model=weaponModels[name];if(model){const holder=new THREE.Group();holder.name="loaded-weapon";holder.position.set(.34,-.34,-.88);holder.add(model);weapon.add(holder)}
+ const model=weaponModels[name];if(model){
+  const holder=new THREE.Group();holder.name="loaded-weapon";holder.position.set(.34,-.34,-.88);
+  model.traverse(o=>{if(o.isMesh&&o.material){const darken=m=>{const mat=m.clone();if(mat.color)mat.color.set(0x111315);if(mat.emissive)mat.emissive.set(0x000000);mat.roughness=.78;mat.metalness=Math.min(mat.metalness??0,.35);return mat};o.material=Array.isArray(o.material)?o.material.map(darken):darken(o.material);o.frustumCulled=false}});
+  holder.add(model);makeWeaponHands(holder);weapon.add(holder)
+ }
  const fallback=weapon.getObjectByName("procedural-fallback");if(fallback)fallback.visible=!model;
- if($( "weapon-name"))$("weapon-name").textContent=name==="M4"?"M4 CARBINE":"MP5";
+ if($("weapon-name"))$("weapon-name").textContent=name==="M4"?"M4 CARBINE":"MP5";
 }
 function makeWeapon(){
  weapon=new THREE.Group();weapon.frustumCulled=false;weapon.renderOrder=10;camera.add(weapon);
