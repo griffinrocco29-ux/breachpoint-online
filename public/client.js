@@ -1,4 +1,5 @@
-import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 const socket=io(),$=id=>document.getElementById(id);
 let roomCode="",myId="",inGame=false,scene,camera,renderer,clock,yaw=0,pitch=0,health=100,phase="LOBBY",round=1,keys={},remote=new Map(),colliders=[],weapon,weaponKick=0,walkTime=0,lastShot=0,aiming=false,crouched=false,lastUpdate=0,magazine=30,reserveAmmo=150,reloading=false;
 const raycaster=new THREE.Raycaster(),M=(c,r=.85,m=0)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
@@ -38,11 +39,26 @@ function buildMap(){
 }
 function add(parent,geo,mat,pos,rot){const o=new THREE.Mesh(geo,mat);o.position.set(...pos);if(rot)o.rotation.set(...rot);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o}
 function makeWeapon(){
- weapon=new THREE.Group();weapon.frustumCulled=false;weapon.renderOrder=10;camera.add(weapon);const metal=M(0x171d1b,.35,.75),poly=M(0x343b35,.75,.1),steel=M(0x69716d,.3,.8),rubber=M(0x151918);
+ weapon=new THREE.Group();weapon.frustumCulled=false;weapon.renderOrder=10;camera.add(weapon);
+ // Procedural fallback stays visible if the model cannot load.
+ const metal=M(0x171d1b,.35,.75),poly=M(0x343b35,.75,.1),steel=M(0x69716d,.3,.8),rubber=M(0x151918);
  add(weapon,new THREE.BoxGeometry(.17,.19,.72),metal,[.34,-.29,-.57]);add(weapon,new THREE.BoxGeometry(.18,.23,.24),poly,[.34,-.31,-.25]);add(weapon,new THREE.BoxGeometry(.14,.32,.22),rubber,[.34,-.48,-.36],[.18,0,0]);add(weapon,new THREE.BoxGeometry(.14,.15,.36),poly,[.34,-.29,-1.02]);add(weapon,new THREE.CylinderGeometry(.035,.035,.55,12),steel,[.34,-.27,-1.42],[Math.PI/2,0,0]);add(weapon,new THREE.CylinderGeometry(.055,.055,.08,12),metal,[.34,-.27,-1.7],[Math.PI/2,0,0]);add(weapon,new THREE.BoxGeometry(.14,.23,.28),metal,[.34,-.48,-.62]);add(weapon,new THREE.BoxGeometry(.07,.08,.2),steel,[.34,-.17,-.83]);
  for(let i=0;i<8;i++)add(weapon,new THREE.BoxGeometry(.19,.018,.035),steel,[.34,-.16,-.91-i*.055]);add(weapon,new THREE.BoxGeometry(.12,.16,.16),metal,[.34,-.075,-.83]);add(weapon,new THREE.CylinderGeometry(.055,.055,.035,16),steel,[.34,-.075,-.91],[Math.PI/2,0,0]);
  const lens=new THREE.Mesh(new THREE.CircleGeometry(.045,16),new THREE.MeshBasicMaterial({color:0x577d77}));lens.position.set(.34,-.075,-.933);weapon.add(lens);
  const sleeve=M(0x424b3f),glove=M(0x252a27);for(let s of [-1,1]){add(weapon,new THREE.CylinderGeometry(.095,.12,.55,10),sleeve,[.34+s*.18,-.48,-.25],[.3,0,s*.45]);add(weapon,new THREE.SphereGeometry(.105,12,10),glove,[.34+s*.18,-.32,-.48])}
+ const fallback=weapon.children.slice();
+ new GLTFLoader().load("/assets/M4+carbine.glb",gltf=>{
+  const model=gltf.scene;model.updateMatrixWorld(true);
+  const bounds=new THREE.Box3().setFromObject(model),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());
+  const longest=Math.max(size.x,size.y,size.z);if(!Number.isFinite(longest)||longest<=0)throw new Error("Invalid weapon model dimensions");
+  const scale=1.25/longest;
+  model.position.set(-center.x,-center.y,-center.z);model.scale.setScalar(scale);
+  model.traverse(o=>{if(o.isMesh){o.frustumCulled=false;o.castShadow=true;o.receiveShadow=true}});
+  const pivot=new THREE.Group();pivot.rotation.y=Math.PI/2;pivot.position.set(.34,-.34,-.96);pivot.add(model);
+  for(const child of fallback)weapon.remove(child);
+  weapon.add(pivot);
+  console.info("BREACHPOINT: M4 model loaded",size);
+ },undefined,error=>console.warn("M4 model did not load; using fallback weapon.",error));
 }
 function makeOperator(p){const g=new THREE.Group(),team=p.team==="ATTACK",cloth=M(team?0x515b4a:0x444e55),armor=M(team?0x303a32:0x293238),skin=M(0x665747),helmet=M(team?0x30392f:0x242d33);
  add(g,new THREE.CapsuleGeometry(.34,.65,5,10),cloth,[0,1.08,0]);add(g,new THREE.BoxGeometry(.68,.58,.32),armor,[0,1.22,-.03]);add(g,new THREE.SphereGeometry(.22,16,12),skin,[0,1.82,0]);add(g,new THREE.SphereGeometry(.25,16,12),helmet,[0,1.98,0]);add(g,new THREE.BoxGeometry(.32,.07,.08),M(0x101718),[0,1.83,-.2]);add(g,new THREE.BoxGeometry(.32,.35,.16),armor,[0,1.34,.22]);
