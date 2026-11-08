@@ -280,7 +280,7 @@ function move(dt){if(!inGame)return;const locked=document.pointerLockElement===r
  const reloadAction=actionAnim==="reload"||actionAnim==="empty-reload",emptyAction=actionAnim==="empty-reload";
  const reloadDip=reloadAction?Math.sin(progress*Math.PI)*.12:0,plantDip=actionAnim==="plant"?Math.sin(progress*Math.PI)*.55:0;
  weapon.position.set(Math.sin(walkTime)*.008,-weaponKick*.05+Math.abs(Math.cos(walkTime*2))*.006-reloadDip-plantDip,-weaponKick*.08);
- const crosshair=$("crosshair");if(crosshair){const targetSpread=aiming?1.5:(fireHeld?13:keys.KeyW||keys.KeyA||keys.KeyS||keys.KeyD?10:6);crosshairSpread=THREE.MathUtils.damp(crosshairSpread,targetSpread,10,dt);crosshair.style.setProperty("--spread",crosshairSpread+"px");crosshair.style.opacity=aiming?".42":".9"}
+ const crosshair=$("crosshair");if(crosshair){const targetSpread=aiming?1.5+weaponKick*2:6+weaponKick*18+(keys.KeyW||keys.KeyA||keys.KeyS||keys.KeyD?4:0);crosshairSpread=THREE.MathUtils.damp(crosshairSpread,targetSpread,10,dt);crosshair.style.setProperty("--spread",crosshairSpread+"px");crosshair.style.opacity=aiming?".42":".9"}
  weapon.rotation.set(-weaponKick*.06+(actionAnim==="plant"?progress*.65:0),Math.sin(walkTime)*.01,Math.sin(walkTime*.5)*.01+(reloadAction?Math.sin(progress*Math.PI)*.08:0));
  const viewWeapon=weapon.getObjectByName("loaded-weapon");if(viewWeapon){
   const inspecting=actionAnim==="inspect",p=progress,target=inspecting?viewWeapon.userData.inspectPosition:(aiming?viewWeapon.userData.adsPosition:viewWeapon.userData.hipPosition);
@@ -379,7 +379,7 @@ $("reload-btn").addEventListener("click",reload);$("bomb-btn").addEventListener(
 function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05);bombAnim+=dt;
  for(let i=tracers.length-1;i>=0;i--){const t=tracers[i];t.life-=dt;t.line.material.opacity=Math.max(0,t.life/t.maxLife);if(t.life<=0){scene.remove(t.line);t.line.geometry.dispose();t.line.material.dispose();tracers.splice(i,1)}}
  const rifle=weapon&&weapon.getObjectByName("loaded-weapon");
- if(rifle&&rifle.userData.shells)rifle.userData.shells.children.forEach((o,i)=>o.visible=i<magazine);
+ if(rifle&&rifle.userData.shells)rifle.userData.shells.children.forEach((o,i)=>o.visible=Math.floor(i/2)<magazine);
  if(rifle&&rifle.userData.pump){const age=shotgunPumpStart?performance.now()-shotgunPumpStart:99999,p=age<90?THREE.MathUtils.clamp(age/90,0,1):age<260?1-THREE.MathUtils.clamp((age-90)/170,0,1):0;rifle.userData.pump.position.z=-.98+p*.18;if(age>270)shotgunPumpStart=0}
  if(rifle&&boltCycleStart){const age=performance.now()-boltCycleStart,back=THREE.MathUtils.clamp(age/42,0,1),forward=age<42?0:THREE.MathUtils.clamp((age-42)/92,0,1),kick=age<42?back*back*(3-2*back):(1-forward)*(1-forward)*(3-2*(1-forward));
   const bolt=rifle.userData.bolt,handle=rifle.userData.charging,cover=rifle.userData.portCover;
