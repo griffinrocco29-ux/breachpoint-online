@@ -43,6 +43,8 @@ function buildMap(){
  }
  // Central objective / loading island with multiple approach angles.
  box(0,.85,0,5.2,1.7,3.6,mats.black);box(0,1.74,0,4.6,.12,3.1,mats.steel,false);
+ const siteRing=new THREE.Mesh(new THREE.RingGeometry(2.65,2.82,64),new THREE.MeshBasicMaterial({color:0xc8dc8b,side:THREE.DoubleSide,transparent:true,opacity:.72}));siteRing.rotation.x=-Math.PI/2;siteRing.position.set(0,.035,0);scene.add(siteRing);
+ const siteLabel=new THREE.Mesh(new THREE.BoxGeometry(1.4,.025,.12),new THREE.MeshBasicMaterial({color:0xc8dc8b}));siteLabel.position.set(0,.045,-2.95);scene.add(siteLabel);
  for(const x of [-1.8,1.8])for(const z of [-1.1,1.1])box(x,2.02,z,.12,.5,.12,mats.olive,false);
  // Storage racks against walls, with shelves and upright supports.
  for(const x of [-24,24])for(const z of [-15,-5,5,15]){
