@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 const socket=io(),$=id=>document.getElementById(id);
 let roomCode="",myId="",inGame=false,scene,camera,renderer,clock,yaw=0,pitch=0,health=100,phase="LOBBY",round=1,keys={},remote=new Map(),colliders=[],weapon,weaponKick=0,walkTime=0,lastShot=0,aiming=false,crouched=false,lastUpdate=0,magazine=30,reserveAmmo=150,reloading=false;
 const raycaster=new THREE.Raycaster(),M=(c,r=.85,m=0)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
@@ -99,18 +100,29 @@ function loadWeaponModel(url,name){
 function makeWeaponHands(holder){
  const glove=M(0x34393b,.88,.02),sleeve=M(0x242a2d,.95,0),cuff=M(0x41474a,.9,0);
  const part=(geo,mat,pos,rot)=>{const o=new THREE.Mesh(geo,mat);o.position.set(...pos);if(rot)o.rotation.set(...rot);o.frustumCulled=false;o.castShadow=true;holder.add(o);return o};
+ // Sleeves and cuffs remain separate from the hands.
  part(new THREE.CapsuleGeometry(.075,.43,5,9),sleeve,[.12,-.57,-.88],[.18,0,-.22]);
  part(new THREE.CapsuleGeometry(.075,.43,5,9),sleeve,[.49,-.56,-.58],[-.18,0,.32]);
  part(new THREE.CylinderGeometry(.079,.079,.09,12),cuff,[.12,-.38,-.98],[.18,0,-.22]);
  part(new THREE.CylinderGeometry(.079,.079,.09,12),cuff,[.49,-.37,-.68],[-.18,0,.32]);
- part(new THREE.SphereGeometry(.095,14,12),glove,[.16,-.34,-1.02]);
- part(new THREE.SphereGeometry(.09,14,12),glove,[.43,-.36,-.68]);
- for(let i=0;i<4;i++){
-  part(new THREE.CapsuleGeometry(.022,.105,4,7),glove,[.085+i*.045,-.29,-1.11],[.28,0,-.18]);
-  part(new THREE.CapsuleGeometry(.022,.095,4,7),glove,[.36+i*.032,-.29,-.72],[.22,0,.2]);
- }
- part(new THREE.CapsuleGeometry(.024,.085,4,7),glove,[.25,-.35,-.96],[0,0,-.75]);
- part(new THREE.CapsuleGeometry(.024,.085,4,7),glove,[.49,-.35,-.59],[0,0,.7]);
+ // Build each glove as ONE merged BufferGeometry mesh, not a pile of visible primitives.
+ const buildHand=(side)=>{
+  const pieces=[];
+  const add=(geo,pos,rot=[0,0,0],scale=[1,1,1])=>{
+   const g=geo;g.scale(...scale);g.rotateX(rot[0]);g.rotateY(rot[1]);g.rotateZ(rot[2]);g.translate(...pos);pieces.push(g);
+  };
+  const palm=side==="support"?[.16,-.34,-1.02]:[.43,-.36,-.68];
+  add(new THREE.SphereGeometry(.09,16,12),palm,[0,0,0],side==="support"?[1.08,.82,1.25]:[1,.88,1.16]);
+  for(let i=0;i<4;i++){
+   const x=(side==="support"?.085:.36)+i*(side==="support"?.045:.032);
+   const y=side==="support"?-.29:-.29,z=side==="support"?-1.11:-.72;
+   add(new THREE.CapsuleGeometry(.022,.105,5,8),[x,y,z],[side==="support"?.28:.22,0,side==="support"?-.18:.2]);
+  }
+  add(new THREE.CapsuleGeometry(.024,.085,5,8),side==="support"?[.25,-.35,-.96]:[.49,-.35,-.59],[0,0,side==="support"?-.75:.7]);
+  const merged=mergeGeometries(pieces,false);merged.computeVertexNormals();
+  const mesh=new THREE.Mesh(merged,glove);mesh.frustumCulled=false;mesh.castShadow=true;mesh.name=side+"-glove-mesh";holder.add(mesh);
+ };
+ buildHand("support");buildHand("grip");
 }
 function showWeaponModel(name){
  const old=weapon.getObjectByName("loaded-weapon");if(old)weapon.remove(old);
