@@ -77,17 +77,15 @@ function loadWeaponModel(url,name){
  const loader=new GLTFLoader();
  loader.load(url,gltf=>{
   const source=gltf.scene;source.updateMatrixWorld(true);
-  const initialBounds=new THREE.Box3().setFromObject(source);
-  const size=initialBounds.getSize(new THREE.Vector3()),center=initialBounds.getCenter(new THREE.Vector3());
+  const bounds=new THREE.Box3().setFromObject(source);
+  const size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());
   const dims=[size.x,size.y,size.z],axis=dims.indexOf(Math.max(...dims)),length=dims[axis];
   if(!Number.isFinite(length)||length<.001){console.warn("Invalid dimensions for",name);return}
-  // Normalize around the true model bounds, then rotate its longest axis into the weapon's forward direction.
+  // Center and scale the asset, then align its longest dimension with screen-horizontal X.
   const normalized=new THREE.Group();normalized.add(source);
-  source.position.sub(center);source.scale.setScalar(1.12/length);
-  if(axis===0)normalized.rotation.y=-Math.PI/2;
-  else if(axis===1)normalized.rotation.x=-Math.PI/2;
-  // The supplied MP5 asset is authored standing upright; roll it into a natural first-person rifle pose.
-  if(name==="MP5")normalized.rotation.z=Math.PI/2;
+  source.position.sub(center);source.scale.setScalar(1.08/length);
+  const longAxis=[new THREE.Vector3(1,0,0),new THREE.Vector3(0,1,0),new THREE.Vector3(0,0,1)][axis];
+  normalized.quaternion.setFromUnitVectors(longAxis,new THREE.Vector3(1,0,0));
   normalized.traverse(o=>{if(o.isMesh){o.frustumCulled=false;o.castShadow=true;o.receiveShadow=true;if(o.material){o.material.side=THREE.DoubleSide}}});
   normalized.updateMatrixWorld(true);
   const finalBounds=new THREE.Box3().setFromObject(normalized);
@@ -95,12 +93,12 @@ function loadWeaponModel(url,name){
   normalized.position.sub(finalCenter);
   weaponModels[name]=normalized;
   if(activeWeapon===name)showWeaponModel(name);
-  console.info("Loaded weapon asset:",name,"bounds",finalBounds.getSize(new THREE.Vector3()));
+  console.info("Loaded weapon asset:",name,"source axis",axis,"bounds",finalBounds.getSize(new THREE.Vector3()));
  },undefined,e=>console.warn("Could not load "+name+" model; fallback remains active.",e));
 }
 function showWeaponModel(name){
  const old=weapon.getObjectByName("loaded-weapon");if(old)weapon.remove(old);
- const model=weaponModels[name];if(model){const holder=new THREE.Group();holder.name="loaded-weapon";holder.position.set(.56,-.48,-1.02);holder.add(model);weapon.add(holder)}
+ const model=weaponModels[name];if(model){const holder=new THREE.Group();holder.name="loaded-weapon";holder.position.set(.34,-.34,-.88);holder.add(model);weapon.add(holder)}
  const fallback=weapon.getObjectByName("procedural-fallback");if(fallback)fallback.visible=!model;
  if($( "weapon-name"))$("weapon-name").textContent=name==="M4"?"M4 CARBINE":"MP5";
 }
