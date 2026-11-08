@@ -7,7 +7,7 @@ function players(r){return [...r.players.values()].map(p=>({id:p.id,name:p.name,
 function state(c){const r=room(c);if(r)io.to(c).emit("room-state",{code:c,phase:r.phase,round:r.round,timeLeft:r.timeLeft,players:players(r)})}
 function create(owner,priv){let c;do{c=code()}while(rooms.has(c));const r={code:c,private:priv,phase:"LOBBY",round:1,timeLeft:30,players:new Map(),ownerId:owner,interval:null};rooms.set(c,r);return r}
 function team(r){const a=[...r.players.values()].filter(p=>p.team==="ATTACK").length,d=[...r.players.values()].filter(p=>p.team==="DEFEND").length;return a<=d?"ATTACK":"DEFEND"}
-function spawn(t){return t==="ATTACK"?{x:-21,y:1.68,z:(Math.random()-.5)*7,yaw:-Math.PI/2}:{x:21,y:1.68,z:(Math.random()-.5)*7,yaw:Math.PI/2}}
+function spawn(t){const lane=(Math.random()<.5?-1:1)*8;return t==="ATTACK"?{x:-24.5,y:1.68,z:lane,yaw:-Math.PI/2}:{x:24.5,y:1.68,z:lane,yaw:Math.PI/2}}
 function addPlayer(s,r,n){const t=team(r),p={id:s.id,name:String(n||"Operator").replace(/[<>]/g,"").slice(0,16),team:t,...spawn(t),pitch:0,health:100,alive:true,weapon:"CARBINE"};r.players.set(s.id,p);s.join(r.code);return p}
 function find(id){for(const r of rooms.values())if(r.players.has(id))return r;return null}
 function startRound(r){r.phase="PREP";r.timeLeft=15;for(const p of r.players.values())Object.assign(p,spawn(p.team),{health:100,alive:true,pitch:0});clearInterval(r.interval);r.interval=setInterval(()=>{if(!rooms.has(r.code))return;r.timeLeft--;if(r.timeLeft<=0){if(r.phase==="PREP"){r.phase="ACTION";r.timeLeft=180}else if(r.phase==="ACTION"){r.phase="END";r.timeLeft=8}else{r.round++;startRound(r);return}}state(r.code)},1000);state(r.code)}
