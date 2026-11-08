@@ -81,99 +81,92 @@ function buildMap(){
  for(const [x,z,scale] of [[-12,-4,1.2],[11,8,.9],[-4,17,.7],[18,-12,1.1]]){const scuff=new THREE.Mesh(new THREE.CircleGeometry(scale,24),new THREE.MeshBasicMaterial({color:0x343a35,transparent:true,opacity:.22,depthWrite:false}));scuff.rotation.x=-Math.PI/2;scuff.position.set(x,.018,z);scene.add(scuff)}
 }
 function add(parent,geo,mat,pos,rot){const o=new THREE.Mesh(geo,mat);o.position.set(...pos);if(rot)o.rotation.set(...rot);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o}
-let activeWeapon="VXR-9",destructibles=[],debris=[],leanValue=0,leanApplied=0,muzzleFlash=null,flashLight=null,tracers=[],targetMeshes=[],rangeMode=false,rangeHits=0,shellCasings=[];
+let activeWeapon="VXR-9",destructibles=[],debris=[],leanValue=0,leanApplied=0,muzzleFlash=null,flashLight=null,tracers=[],targetMeshes=[],rangeMode=false,rangeHits=0,shellCasings=[],boltCycleStart=0,boltCasingPending=false;
 function makeVXR9(){
- const g=new THREE.Group(),receiver=M(0x303936,.48,.48),alloy=M(0x171d1c,.24,.84),edge=M(0x758078,.34,.72),poly=M(0x252c29,.86,.06),rubber=M(0x111614,.94,0),cloth=M(0x353e36,.96,0),glove=M(0x171c1a,.94,0);
- const lens=new THREE.MeshPhysicalMaterial({color:0x91c4bd,metalness:0,roughness:.045,transmission:.94,transparent:true,opacity:.24,thickness:.025,ior:1.48,side:THREE.DoubleSide});
- const red=new THREE.MeshBasicMaterial({color:0xff2638});
- const put=(geo,mat,p,r,parent=g)=>add(parent,geo,mat,p,r);
- const seg=(parent,a,b,r,mat)=>{const av=new THREE.Vector3(...a),bv=new THREE.Vector3(...b),d=bv.clone().sub(av),mesh=new THREE.Mesh(new THREE.CapsuleGeometry(r,Math.max(.01,d.length()-r*2),4,8),mat);mesh.position.copy(av.add(bv).multiplyScalar(.5));mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());mesh.castShadow=true;parent.add(mesh);return mesh};
- // Slim forged upper/lower receiver with a distinct upper rail and ejection-port assembly.
- put(new THREE.BoxGeometry(.155,.125,.72),receiver,[0,.005,-.34]);
- put(new THREE.BoxGeometry(.15,.065,.63),alloy,[0,.095,-.37]);
- put(new THREE.BoxGeometry(.145,.095,.38),poly,[0,-.09,-.2]);
- put(new THREE.BoxGeometry(.14,.11,.28),alloy,[0,-.08,-.66]);
- put(new THREE.BoxGeometry(.009,.052,.23),rubber,[.081,.025,-.34]);
- put(new THREE.BoxGeometry(.012,.07,.24),edge,[.087,.027,-.34]);
- put(new THREE.BoxGeometry(.12,.025,.23),alloy,[.02,.15,-.34]);
- // Slim free-float M-LOK handguard, side slots, heat vents and a continuous Picatinny top rail.
- put(new THREE.BoxGeometry(.145,.135,.78),poly,[0,.012,-1.02]);
- for(const side of [-1,1]){
-  put(new THREE.BoxGeometry(.012,.075,.57),alloy,[side*.075,.01,-1.02]);
-  for(let i=0;i<9;i++){const slot=put(new THREE.BoxGeometry(.014,.026,.052),rubber,[side*.083,.012,-.77-i*.063]);slot.rotation.y=.08}
-  for(let i=0;i<5;i++)put(new THREE.BoxGeometry(.014,.025,.04),edge,[side*.083,-.055,-.83-i*.11]);
- }
- for(let i=0;i<17;i++)put(new THREE.BoxGeometry(.19,.018,.036),edge,[0,.092,-.69-i*.045]);
- for(let i=0;i<8;i++)put(new THREE.BoxGeometry(.18,.018,.035),alloy,[0,-.079,-.77-i*.085]);
- // Barrel, gas block, low-profile front sight and multi-port muzzle brake.
- put(new THREE.CylinderGeometry(.027,.031,.93,16),alloy,[0,.018,-1.76],[Math.PI/2,0,0]);
- put(new THREE.CylinderGeometry(.052,.052,.12,12),receiver,[0,.018,-1.45],[Math.PI/2,0,0]);
- put(new THREE.BoxGeometry(.085,.075,.12),alloy,[0,.09,-1.43]);
- put(new THREE.BoxGeometry(.025,.12,.06),edge,[0,.17,-1.43]);
- put(new THREE.CylinderGeometry(.052,.045,.13,14),alloy,[0,.018,-2.21],[Math.PI/2,0,0]);
- put(new THREE.CylinderGeometry(.037,.037,.018,12),rubber,[0,.018,-2.285],[Math.PI/2,0,0]);
- for(let i=0;i<4;i++)put(new THREE.BoxGeometry(.012,.025,.035),edge,[.048,.018,-2.18+i*.018]);
- // M4-inspired buffer tube, six-position stock and rubber butt pad.
- put(new THREE.CylinderGeometry(.045,.045,.48,12),alloy,[0,.015,.49],[Math.PI/2,0,0]);
- put(new THREE.BoxGeometry(.14,.16,.34),poly,[0,.005,.65]);
- put(new THREE.BoxGeometry(.17,.19,.075),rubber,[0,.005,.82]);
- put(new THREE.BoxGeometry(.105,.035,.28),edge,[0,.105,.62]);
- for(let i=0;i<5;i++)put(new THREE.BoxGeometry(.15,.012,.025),alloy,[0,.105,.52+i*.055]);
- // Pistol grip with molded finger grooves and flared magwell.
- put(new THREE.BoxGeometry(.105,.22,.13),rubber,[0,-.19,-.16],[.2,0,0]);
- for(let i=0;i<4;i++)put(new THREE.BoxGeometry(.108,.014,.025),edge,[0,-.16-i*.04,-.222]);
- put(new THREE.BoxGeometry(.16,.085,.17),alloy,[0,-.17,-.49]);
- // Curved polymer magazine, separate so reload animation can physically remove and replace it.
+ const g=new THREE.Group(),metal=M(0x202725,.34,.82),steel=M(0x68736d,.28,.78),dark=M(0x111716,.38,.78),poly=M(0x292f2b,.82,.08),rubber=M(0x141a17,.96,0),cloth=M(0x303a34,.96,0),glove=M(0x171d1a,.9,.02);
+ const glass=new THREE.MeshPhysicalMaterial({color:0xa9d4d0,roughness:.025,metalness:0,transmission:.96,transparent:true,opacity:.12,thickness:.008,ior:1.48,depthWrite:false,side:THREE.DoubleSide}),red=new THREE.MeshBasicMaterial({color:0xff2638,toneMapped:false});
+ const put=(geo,mat,p=[0,0,0],rot=null,parent=g)=>add(parent,geo,mat,p,rot||undefined);
+ const tube=(rad,len,mat,p,n=16)=>put(new THREE.CylinderGeometry(rad,rad,len,n,1,true),mat,p,[Math.PI/2,0,0]);
+ const capsule=(parent,a,b,r,mat)=>{const A=new THREE.Vector3(...a),B=new THREE.Vector3(...b),d=B.clone().sub(A),m=new THREE.Mesh(new THREE.CapsuleGeometry(r,Math.max(.001,d.length()-2*r),4,10),mat);m.position.copy(A.add(B).multiplyScalar(.5));m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());m.castShadow=true;parent.add(m);return m};
+ // Slim M4-profile receiver, built from rounded 12- and 16-sided components.
+ put(new THREE.CapsuleGeometry(.073,.48,5,14),metal,[0,.012,-.34],[Math.PI/2,0,0]);
+ put(new THREE.CylinderGeometry(.068,.073,.43,12),poly,[0,-.035,-.36],[Math.PI/2,0,0]);
+ put(new THREE.CapsuleGeometry(.057,.22,4,12),dark,[0,-.025,-.64],[Math.PI/2,0,0]);
+ put(new THREE.BoxGeometry(.105,.014,.34),steel,[0,.085,-.37]);
+ put(new THREE.BoxGeometry(.009,.042,.19),dark,[.074,.035,-.36]);
+ const portCover=put(new THREE.BoxGeometry(.012,.048,.205),metal,[.082,.04,-.36]);portCover.name="vxr-port-cover";
+ // Slim free-float M-LOK handguard, rounded profile and recessed slots.
+ put(new THREE.CylinderGeometry(.074,.074,.83,14),poly,[0,.012,-1.13],[Math.PI/2,0,0]);
+ put(new THREE.CylinderGeometry(.079,.079,.035,14),metal,[0,.012,-.705],[Math.PI/2,0,0]);
+ for(const side of [-1,1])for(let i=0;i<9;i++){const z=-.82-i*.075;put(new THREE.CapsuleGeometry(.009,.032,3,8),dark,[side*.071,.012,z],[Math.PI/2,0,0]);put(new THREE.CylinderGeometry(.004,.004,.014,8),steel,[side*.079,.012,z],[0,0,Math.PI/2])}
+ for(let i=0;i<4;i++)put(new THREE.CylinderGeometry(.006,.006,.07,8),steel,[.071,-.045,-.9-i*.16],[0,0,Math.PI/2]);
+ // Individual Picatinny teeth instead of one oversized rail block.
+ put(new THREE.BoxGeometry(.075,.018,.86),dark,[0,.086,-1.12]);
+ for(let i=0;i<22;i++)put(new THREE.BoxGeometry(.088,.012,.022),steel,[0,.102,-.72-i*.038]);
+ // Long thin barrel, gas collars and compact multi-port muzzle.
+ put(new THREE.CylinderGeometry(.022,.024,1.23,16),steel,[0,.012,-1.84],[Math.PI/2,0,0]);
+ put(new THREE.CylinderGeometry(.031,.034,.095,12),metal,[0,.012,-1.48],[Math.PI/2,0,0]);
+ put(new THREE.CylinderGeometry(.034,.03,.13,12),dark,[0,.012,-2.45],[Math.PI/2,0,0]);
+ put(new THREE.CylinderGeometry(.028,.028,.018,12),steel,[0,.012,-2.525],[Math.PI/2,0,0]);
+ for(let i=0;i<6;i++)put(new THREE.BoxGeometry(.008,.018,.028),dark,[.028*Math.cos(i*Math.PI/3),.012+.028*Math.sin(i*Math.PI/3),-2.46]);
+ // Buffer tube, adjustable stock and butt pad.
+ put(new THREE.CylinderGeometry(.037,.037,.52,12),steel,[0,.012,.53],[Math.PI/2,0,0]);
+ put(new THREE.CapsuleGeometry(.064,.28,4,12),poly,[0,.005,.72],[Math.PI/2,0,0]);
+ put(new THREE.CylinderGeometry(.074,.074,.035,12),rubber,[0,.005,.89],[Math.PI/2,0,0]);
+ for(let i=0;i<5;i++)put(new THREE.TorusGeometry(.038,.003,5,12),steel,[0,.012,.35+i*.07],[Math.PI/2,0,0]);
+ // Rounded pistol grip and trigger guard.
+ put(new THREE.CapsuleGeometry(.046,.19,4,10),rubber,[0,-.17,-.15],[.24,0,0]);
+ for(let i=0;i<4;i++)put(new THREE.TorusGeometry(.042,.003,5,12),steel,[0,-.12-i*.038,-.17],[.24,0,0]);
+ const guard=new THREE.Mesh(new THREE.TorusGeometry(.068,.008,6,18,Math.PI),steel);guard.position.set(0,-.13,-.42);guard.rotation.x=Math.PI/2;g.add(guard);
+ // Octagonal tapered magazine with floorplate and narrow ribs.
  const mag=new THREE.Group();mag.name="vxr-magazine";
- put(new THREE.BoxGeometry(.115,.32,.16),poly,[0,-.34,-.56],[.10,0,0],mag);
- put(new THREE.BoxGeometry(.12,.025,.17),alloy,[0,-.185,-.56],null,mag);
- for(let i=0;i<7;i++)put(new THREE.BoxGeometry(.118,.012,.012),edge,[0,-.22-i*.038,-.645],null,mag);
+ put(new THREE.CylinderGeometry(.047,.055,.31,8,1),poly,[0,-.29,-.52],[.12,0,0],mag);
+ put(new THREE.CylinderGeometry(.051,.051,.018,8),dark,[0,-.45,-.52],[.12,0,0],mag);
+ for(let i=0;i<6;i++)put(new THREE.CylinderGeometry(.003,.003,.22,6),steel,[.049*Math.cos(i*Math.PI/3),-.29,-.52+.049*Math.sin(i*Math.PI/3)],[.12,0,0],mag);
  mag.userData.basePosition=mag.position.clone();g.add(mag);
- // Vertical foregrip: textured narrow body, flared cap and finger grooves.
- put(new THREE.BoxGeometry(.078,.19,.085),rubber,[0,-.145,-1.12],[.12,0,0]);
- put(new THREE.BoxGeometry(.094,.035,.1),alloy,[0,-.24,-1.12]);
- for(let i=0;i<4;i++)put(new THREE.BoxGeometry(.082,.012,.086),edge,[0,-.105-i*.036,-1.12]);
- // Compact low-profile 1x optic. Hollow tube and clear glass windows; no opaque block across the sight picture.
- put(new THREE.BoxGeometry(.14,.028,.2),alloy,[0,.14,-.48]);
- put(new THREE.CylinderGeometry(.061,.061,.24,20,1,true),alloy,[0,.235,-.49],[Math.PI/2,0,0]);
- put(new THREE.TorusGeometry(.061,.009,8,24),edge,[0,.235,-.365],[0,0,0]);
- put(new THREE.TorusGeometry(.061,.009,8,24),edge,[0,.235,-.615],[0,0,0]);
- put(new THREE.CircleGeometry(.052,32),lens,[0,.235,-.37]);
- put(new THREE.CircleGeometry(.052,32),lens,[0,.235,-.615]);
- put(new THREE.SphereGeometry(.004,8,8),red,[0,.235,-.63]);
- // Backup iron sights and small ambidextrous controls.
- put(new THREE.BoxGeometry(.09,.09,.065),alloy,[0,.19,-.12]);
- put(new THREE.BoxGeometry(.018,.13,.055),edge,[0,.25,-.12]);
- put(new THREE.BoxGeometry(.07,.07,.06),alloy,[0,.17,-1.85]);
- put(new THREE.BoxGeometry(.018,.12,.05),edge,[0,.23,-1.85]);
- put(new THREE.CylinderGeometry(.012,.012,.1,8),edge,[.09,.04,-.3],[0,0,Math.PI/2]);
- put(new THREE.BoxGeometry(.035,.025,.1),poly,[.12,.04,-.3]);
- // Charging handle / bolt carrier are separate animated parts for the empty-mag reload.
- const bolt=put(new THREE.BoxGeometry(.105,.035,.19),alloy,[0,.125,.02]);bolt.name="vxr-bolt";
- const charging=put(new THREE.CylinderGeometry(.018,.018,.12,10),edge,[.09,.13,.03],[0,0,Math.PI/2]);charging.name="vxr-charging-handle";
- // First-person sleeves, forearms and articulated glove hands attached to the weapon rig.
- const arms=new THREE.Group();arms.name="vxr-arms";g.add(arms);
- const leftArm=new THREE.Group();leftArm.name="vxr-left-arm";arms.add(leftArm);
- seg(leftArm,[-.57,-.73,-1.38],[-.17,-.31,-1.12],.105,cloth);
- put(new THREE.CylinderGeometry(.11,.105,.085,12),cloth,[-.19,-.33,-1.1],[.55,0,.6],leftArm);
- put(new THREE.BoxGeometry(.15,.105,.19),glove,[-.105,-.245,-1.08],[.2,0,-.16],leftArm);
- for(let i=0;i<4;i++)seg(leftArm,[-.17+i*.032,-.265,-1.12],[-.13+i*.032,-.30,-1.02],.018,glove);
- seg(leftArm,[-.19,-.25,-1.1],[-.13,-.30,-1.0],.02,glove);
- const rightArm=new THREE.Group();rightArm.name="vxr-right-arm";arms.add(rightArm);
- seg(rightArm,[.62,-.76,.34],[.14,-.35,-.12],.11,cloth);
- put(new THREE.CylinderGeometry(.115,.105,.085,12),cloth,[.17,-.35,-.13],[.45,0,-.5],rightArm);
- put(new THREE.BoxGeometry(.14,.11,.17),glove,[.075,-.265,-.17],[.12,0,.1],rightArm);
- for(let i=0;i<4;i++)seg(rightArm,[.12+i*.025,-.29,-.22],[.13+i*.025,-.33,-.29],.018,glove);
- seg(rightArm,[.13,-.25,-.13],[.19,-.29,-.21],.02,glove);
- g.userData.arms=arms;g.userData.leftArm=leftArm;g.userData.rightArm=rightArm;g.userData.mag=mag;g.userData.bolt=bolt;g.userData.charging=charging;
+ // Slim octagonal vertical grip with fine traction rings.
+ put(new THREE.CylinderGeometry(.034,.045,.19,8),rubber,[0,-.14,-1.16],[.12,0,0]);
+ put(new THREE.CylinderGeometry(.049,.049,.018,8),steel,[0,-.245,-1.16]);
+ for(let i=0;i<4;i++)put(new THREE.TorusGeometry(.036,.003,5,12),steel,[0,-.09-i*.035,-1.16],[Math.PI/2,0,0]);
+ // Hollow tubular red-dot optic with thin rings and transparent glass. No front post in sight line.
+ put(new THREE.BoxGeometry(.085,.012,.16),dark,[0,.115,-.46]);
+ tube(.046,.205,dark,[0,.177,-.48],20);
+ put(new THREE.TorusGeometry(.046,.006,8,24),steel,[0,.177,-.375]);
+ put(new THREE.TorusGeometry(.046,.006,8,24),steel,[0,.177,-.585]);
+ put(new THREE.CircleGeometry(.039,32),glass,[0,.177,-.373]);
+ put(new THREE.CircleGeometry(.039,32),glass,[0,.177,-.587]);
+ put(new THREE.SphereGeometry(.0025,8,8),red,[0,.177,-.586]);
+ // Small rear notch only; leave the forward optic window completely clear.
+ put(new THREE.CylinderGeometry(.025,.025,.035,10),metal,[0,.11,-.12]);
+ put(new THREE.BoxGeometry(.035,.018,.018),steel,[0,.132,-.12]);
+ put(new THREE.CylinderGeometry(.012,.012,.025,10),steel,[.077,.015,-.29],[0,0,Math.PI/2]);
+ put(new THREE.SphereGeometry(.012,8,8),poly,[.093,.015,-.29]);
+ // Sliding bolt group and charging handle, both driven by a shared cycle clock.
+ const bolt=new THREE.Group();bolt.name="vxr-bolt";
+ put(new THREE.CapsuleGeometry(.025,.22,3,10),dark,[0,0,0],[Math.PI/2,0,0],bolt);
+ put(new THREE.CylinderGeometry(.014,.014,.025,8),steel,[0,0,-.11],[Math.PI/2,0,0],bolt);
+ bolt.position.set(.035,.045,-.35);g.add(bolt);
+ const charging=put(new THREE.CylinderGeometry(.012,.012,.095,10),steel,[.084,.045,-.35],[0,0,Math.PI/2]);charging.name="vxr-charging-handle";
+ // Arms and hands use narrow capsule segments, positioned under the optic's sight line.
+ const leftArm=new THREE.Group();leftArm.name="vxr-left-arm";g.add(leftArm);
+ capsule(leftArm,[-.49,-.64,-1.48],[-.12,-.29,-1.12],.064,cloth);
+ put(new THREE.CylinderGeometry(.068,.062,.075,12),cloth,[-.13,-.29,-1.12],[.6,0,.55],leftArm);
+ put(new THREE.CapsuleGeometry(.045,.085,4,10),glove,[-.075,-.245,-1.08],[.3,0,-.2],leftArm);
+ for(let i=0;i<4;i++)capsule(leftArm,[-.11+i*.022,-.26,-1.11],[-.09+i*.022,-.29,-1.02],.009,glove);
+ const rightArm=new THREE.Group();rightArm.name="vxr-right-arm";g.add(rightArm);
+ capsule(rightArm,[.52,-.68,.48],[.13,-.29,-.16],.067,cloth);
+ put(new THREE.CylinderGeometry(.07,.064,.075,12),cloth,[.15,-.29,-.16],[.5,0,-.5],rightArm);
+ put(new THREE.CapsuleGeometry(.046,.085,4,10),glove,[.085,-.23,-.2],[.2,0,.12],rightArm);
+ for(let i=0;i<4;i++)capsule(rightArm,[.08+i*.022,-.25,-.23],[.09+i*.022,-.29,-.3],.009,glove);
+ g.userData.mag=mag;g.userData.bolt=bolt;g.userData.charging=charging;g.userData.portCover=portCover;g.userData.leftArm=leftArm;g.userData.rightArm=rightArm;
  return g;
 }
 function showWeaponModel(name){
  const old=weapon.getObjectByName("loaded-weapon");if(old)weapon.remove(old);
  const model=makeVXR9();if(model){
-  const holder=new THREE.Group();holder.name="loaded-weapon";holder.position.set(.30,-.27,-.88);holder.userData.hipPosition=new THREE.Vector3(.30,-.27,-.88);holder.userData.adsPosition=new THREE.Vector3(0,-.235,-.63);holder.userData.inspectPosition=new THREE.Vector3(.08,-.42,-1.72);holder.userData.inspectRotation=new THREE.Euler(-.12,.62,.42);
+  const holder=new THREE.Group();holder.name="loaded-weapon";holder.position.set(.30,-.27,-.88);holder.userData.hipPosition=new THREE.Vector3(.30,-.27,-.88);holder.userData.adsPosition=new THREE.Vector3(0,-.177,-.68);holder.userData.inspectPosition=new THREE.Vector3(.02,-.34,-1.82);holder.userData.inspectRotation=new THREE.Euler(-.08,.38,.32);
   model.traverse(o=>{if(o.isMesh){o.frustumCulled=false;o.castShadow=true;o.receiveShadow=true}});
-  holder.userData.mag=model.userData.mag;holder.userData.bolt=model.userData.bolt;holder.userData.charging=model.userData.charging;holder.userData.leftArm=model.userData.leftArm;holder.userData.rightArm=model.userData.rightArm;
+  holder.userData.mag=model.userData.mag;holder.userData.bolt=model.userData.bolt;holder.userData.charging=model.userData.charging;holder.userData.portCover=model.userData.portCover;holder.userData.leftArm=model.userData.leftArm;holder.userData.rightArm=model.userData.rightArm;
   holder.add(model);const spare=model.userData.mag.clone();spare.name="vxr-spare-magazine";spare.visible=false;holder.add(spare);holder.userData.spareMag=spare;weapon.add(holder);
  }
  const fallback=weapon.getObjectByName("procedural-fallback");if(fallback)fallback.visible=!model;
